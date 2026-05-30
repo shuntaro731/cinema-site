@@ -1,11 +1,187 @@
 ---
-import Welcome from '../components/Welcome.astro';
+import { featuredMovies } from '../data/movies';
 import Layout from '../layouts/Layout.astro';
+import { getMovies, getTmdbImageUrl } from '../lib/tmdb';
+import type { TmdbMovie } from '../lib/tmdb';
 
-// Welcome to Astro! Wondering what to do next? Check out the Astro documentation at https://docs.astro.build
-// Don't want to use any of this? Delete everything in this file, the `assets`, `components`, and `layouts` directories, and start fresh.
+let movies: TmdbMovie[] = [];
+let errorMessage = '';
+
+try {
+	movies = await getMovies(featuredMovies.map((movie) => movie.id));
+} catch (error) {
+	errorMessage = error instanceof Error ? error.message : 'Failed to fetch TMDB movies.';
+}
 ---
 
 <Layout>
-	<Welcome />
+	<main class="movie-list">
+		<section class="intro">
+			<p>TMDB API CHECK</p>
+			<h1>Movie Teaser Screens</h1>
+			<p>ブラウン管UIに流し込む前の、TMDB取得確認用ページです。</p>
+		</section>
+
+		{
+			errorMessage ? (
+				<section class="notice">
+					<p>{errorMessage}</p>
+					<p>.env に TMDB_API_KEY を追加すると映画情報を取得できます。</p>
+				</section>
+			) : (
+				<section class="grid">
+					{movies.map((movie) => {
+						const posterUrl = getTmdbImageUrl(movie.posterPath, 'w342');
+						const backdropUrl = getTmdbImageUrl(movie.backdropPath, 'w780');
+						const featuredMovie = featuredMovies.find((item) => item.id === movie.id);
+
+						return (
+							<article class="movie-card">
+								{posterUrl ? (
+									<img src={posterUrl} alt={`${movie.title} poster`} loading="lazy" />
+								) : (
+									<div class="poster-fallback">NO POSTER</div>
+								)}
+								<div>
+									<p class="meta">ID {movie.id}</p>
+									<h2>{movie.title}</h2>
+									<p class="overview">{movie.overview || '概要は登録されていません。'}</p>
+									<dl>
+										<div>
+											<dt>公開日</dt>
+											<dd>{movie.releaseDate || '未定'}</dd>
+										</div>
+										<div>
+											<dt>評価</dt>
+											<dd>{movie.voteAverage.toFixed(1)}</dd>
+										</div>
+										<div>
+											<dt>背景画像</dt>
+											<dd>{backdropUrl ? 'あり' : 'なし'}</dd>
+										</div>
+										<div>
+											<dt>Teaser</dt>
+											<dd>{featuredMovie?.teaserUrl ?? '未設定'}</dd>
+										</div>
+									</dl>
+								</div>
+							</article>
+						);
+					})}
+				</section>
+			)
+		}
+	</main>
 </Layout>
+
+<style>
+	.movie-list {
+		min-height: 100vh;
+		background: #090806;
+		color: #f5edc8;
+		padding: 48px;
+	}
+
+	.intro {
+		margin-bottom: 32px;
+		max-width: 720px;
+	}
+
+	.intro p,
+	.meta {
+		color: #c9a85f;
+		font-size: 14px;
+		letter-spacing: 0.08em;
+	}
+
+	h1,
+	h2,
+	p {
+		margin: 0;
+	}
+
+	h1 {
+		margin-bottom: 12px;
+		font-size: 44px;
+	}
+
+	.grid {
+		display: grid;
+		gap: 24px;
+	}
+
+	.movie-card,
+	.notice {
+		border: 1px solid rgba(245, 237, 200, 0.24);
+		background: rgba(255, 244, 190, 0.06);
+	}
+
+	.movie-card {
+		display: grid;
+		grid-template-columns: 180px 1fr;
+		gap: 24px;
+		padding: 24px;
+	}
+
+	.movie-card img,
+	.poster-fallback {
+		aspect-ratio: 2 / 3;
+		width: 100%;
+		background: #17130e;
+		object-fit: cover;
+	}
+
+	.poster-fallback {
+		display: grid;
+		place-items: center;
+		color: #a58d5a;
+		font-size: 12px;
+	}
+
+	h2 {
+		margin-bottom: 12px;
+		font-size: 28px;
+	}
+
+	.overview {
+		margin-bottom: 20px;
+		color: #ddd4b7;
+		line-height: 1.8;
+	}
+
+	dl {
+		display: grid;
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+		gap: 16px;
+		margin: 0;
+	}
+
+	dt {
+		color: #c9a85f;
+		font-size: 12px;
+	}
+
+	dd {
+		margin: 0;
+		color: #fff7d7;
+	}
+
+	.notice {
+		padding: 24px;
+		color: #fff7d7;
+	}
+
+	@media (max-width: 720px) {
+		.movie-list {
+			padding: 24px;
+		}
+
+		.movie-card {
+			grid-template-columns: 1fr;
+		}
+
+		dl {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+	}
+</style>
