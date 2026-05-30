@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+html {
+	background: #050403;
+	color: #f7edc5;
+}
+
+body {
+	min-height: 100%;
+	background: #050403;
+}
+
+button,
+a {
+	-webkit-tap-highlight-color: transparent;
+}

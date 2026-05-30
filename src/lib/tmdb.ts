@@ -23,7 +23,12 @@ type TmdbMovieResponse = {
 	backdrop_path?: string | null;
 };
 
+type TmdbMovieListResponse = {
+	results?: TmdbMovieResponse[];
+};
+
 function getApiKey() {
+	// APIキーを読み込み
 	const apiKey = import.meta.env.TMDB_API_KEY;
 
 	if (!apiKey) {
@@ -34,6 +39,7 @@ function getApiKey() {
 }
 
 function normalizeMovie(movie: TmdbMovieResponse): TmdbMovie {
+	// データ型にして戻り値として返す
 	return {
 		id: movie.id,
 		title: movie.title ?? movie.original_title ?? 'Untitled',
@@ -64,6 +70,27 @@ export async function getMovie(id: number): Promise<TmdbMovie> {
 
 export async function getMovies(ids: number[]): Promise<TmdbMovie[]> {
 	return Promise.all(ids.map((id) => getMovie(id)));
+}
+
+export async function getNowPlayingMovies(limit = 12): Promise<TmdbMovie[]> {
+	const url = new URL(`${TMDB_BASE_URL}/movie/now_playing`);
+
+	// 各映画ごとの専用URLを作る
+	url.searchParams.set('api_key', getApiKey());
+	url.searchParams.set('language', DEFAULT_LANGUAGE);
+	url.searchParams.set('region', 'JP');
+	url.searchParams.set('page', '1');
+
+	const response = await fetch(url);
+
+	// APIキーが通らないとエラー
+	if (!response.ok) {
+		throw new Error(`Failed to fetch TMDB now playing movies: ${response.status}`);
+	}
+
+	const movies = (await response.json()) as TmdbMovieListResponse;
+
+	return (movies.results ?? []).slice(0, limit).map(normalizeMovie);
 }
 
 export function getTmdbImageUrl(path: string | null, size = 'w780') {
