@@ -58,7 +58,7 @@
 - 動画は `video` タグで背景表示する
 - `autoplay muted loop playsinline` を指定する
 - 画面いっぱいに `object-cover` で表示する
-- 動画が読み込めない場合はTMDBの背景画像を表示する
+- 動画が読み込めない場合は暗いグラデーション背景を表示する
 - 音声再生は初期実装では扱わない
 
 ## Tailwind実装メモ

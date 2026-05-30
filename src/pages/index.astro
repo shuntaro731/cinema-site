@@ -2,45 +2,27 @@
 import CrtHero from '../components/CrtHero.astro';
 import { featuredMovies } from '../data/movies';
 import Layout from '../layouts/Layout.astro';
-import { getMovies, getTmdbImageUrl } from '../lib/tmdb';
-import type { TmdbMovie } from '../lib/tmdb';
 
-let movies: TmdbMovie[] = [];
-let errorMessage = '';
-
-// 映画館の情報を取得
-try {
-	movies = await getMovies(featuredMovies.map((movie) => movie.id));
-} catch (error) {
-	errorMessage = error instanceof Error ? error.message : 'Failed to fetch TMDB movies.';
-}
-
-const heroMovie = movies[0];
+const scrollMovies = [...featuredMovies, ...featuredMovies, ...featuredMovies];
+const middleMovieIndex = featuredMovies.length;
 ---
 
-<Layout title={heroMovie ? `${heroMovie.title} | CRT Movie Screen` : 'CRT Movie Screen'}>
-	<main class="h-screen snap-y snap-mandatory overflow-y-auto bg-black">
+<Layout title="CRT Movie Screen">
+	<main
+		class="h-screen snap-y snap-mandatory overflow-y-auto bg-black [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+		data-crt-scroll
+		data-group-size={String(featuredMovies.length)}
+		data-start-index={String(middleMovieIndex)}
+	>
 		{
-			errorMessage ? (
-				<section class="flex min-h-screen items-center justify-center bg-[#050403] px-6 text-center text-[#f7edc5]">
-					<div class="max-w-xl border border-[#f5d675]/25 bg-[#fff4be]/5 p-8">
-						<p class="mb-3 text-xs uppercase tracking-[0.28em] text-[#d4b35f]">TMDB ERROR</p>
-						<h1 class="mb-4 text-3xl font-semibold">映画情報を取得できませんでした</h1>
-						<p class="mb-3 text-sm leading-7 text-[#d8cda9]">{errorMessage}</p>
-						<p class="text-sm text-[#d8cda9]">.env.local に TMDB_API_KEY を追加すると映画情報を取得できます。</p>
-					</div>
-				</section>
-			) : movies.length ? (
-				movies.map((movie) => {
-					const movieConfig = featuredMovies.find((featuredMovie) => featuredMovie.id === movie.id);
-					const movieImage = getTmdbImageUrl(movie.backdropPath, 'w1280');
-
+			scrollMovies.length ? (
+				scrollMovies.map((movie, index) => {
 					return (
 						<CrtHero
 							movie={movie}
-							videoSrc={movieConfig?.teaserUrl}
-							videoZoom={movieConfig?.teaserZoom}
-							imageSrc={movieImage}
+							instanceKey={`${index}-${movie.id}`}
+							videoSources={movie.teaserSources}
+							videoZoom={movie.teaserZoom}
 						/>
 					);
 				})
@@ -51,4 +33,276 @@ const heroMovie = movies[0];
 			)
 		}
 	</main>
+
+	<script>
+		import { initCrtViewer } from '../scripts/crt-viewer';
+
+		const scroller = document.querySelector<HTMLElement>('[data-crt-scroll]');
+
+		if (scroller && scroller.dataset.crtReady !== 'true') {
+			scroller.dataset.crtReady = 'true';
+
+			const sections = Array.from(scroller.querySelectorAll<HTMLElement>('[data-crt-section]'));
+			const groupSize = Math.max(Number(scroller.dataset.groupSize) || Math.round(sections.length / 3), 1);
+			const viewers = new Map<HTMLElement, ReturnType<typeof initCrtViewer>>();
+			const scrollLockMs = 560;
+			const wheelThreshold = 40;
+
+			let currentIndex = Math.min(Number(scroller.dataset.startIndex) || groupSize, sections.length - 1);
+			let isAnimating = false;
+			let isWheelLocked = false;
+			let wheelDelta = 0;
+			let touchStartY = 0;
+			let animationTimer = 0;
+			let resizeFrame = 0;
+			let wheelReleaseTimer = 0;
+			let wheelResetTimer = 0;
+
+			function getSectionTop(section: HTMLElement) {
+				return section.offsetTop + section.offsetHeight / 2 - scroller.clientHeight / 2;
+			}
+
+			function scrollToSection(index: number, behavior: ScrollBehavior) {
+				const section = sections[index];
+
+				if (!section) {
+					return;
+				}
+
+				scroller.scrollTo({
+					top: getSectionTop(section),
+					behavior,
+				});
+			}
+
+			function addIndex(indexes: Set<number>, index: number) {
+				if (index >= 0 && index < sections.length) {
+					indexes.add(index);
+				}
+			}
+
+			function addEquivalentIndexes(indexes: Set<number>, index: number) {
+				addIndex(indexes, index);
+				addIndex(indexes, index - groupSize);
+				addIndex(indexes, index + groupSize);
+			}
+
+			function getViewer(section: HTMLElement) {
+				const existingViewer = viewers.get(section);
+
+				if (existingViewer) {
+					return existingViewer;
+				}
+
+				const canvas = section.querySelector<HTMLCanvasElement>('[data-crt-canvas]');
+
+				if (!canvas) {
+					return null;
+				}
+
+				const viewer = initCrtViewer({
+					canvas,
+					videoSrc: canvas.dataset.videoSrc || undefined,
+					videoSources: JSON.parse(canvas.dataset.videoSources || '[]'),
+					videoZoom: Number(canvas.dataset.videoZoom) || 1,
+				});
+
+				viewers.set(section, viewer);
+				return viewer;
+			}
+
+			function syncActiveViewers() {
+				const activeIndexes = new Set<number>();
+				const preloadIndexes = new Set<number>();
+
+				for (let offset = -1; offset <= 1; offset += 1) {
+					addIndex(activeIndexes, currentIndex + offset);
+				}
+
+				for (let offset = -2; offset <= 2; offset += 1) {
+					addEquivalentIndexes(preloadIndexes, currentIndex + offset);
+				}
+
+				sections.forEach((section, index) => {
+					if (activeIndexes.has(index)) {
+						const viewer = getViewer(section);
+						viewer?.play();
+						return;
+					}
+
+					if (preloadIndexes.has(index)) {
+						const viewer = getViewer(section);
+						viewer?.preload();
+						viewer?.pause();
+						return;
+					}
+
+					viewers.get(section)?.pause();
+				});
+			}
+
+			function normalizeInfiniteIndex() {
+				const middleStart = groupSize;
+				const middleEnd = groupSize * 2 - 1;
+
+				if (currentIndex < middleStart) {
+					currentIndex += groupSize;
+					scrollToSection(currentIndex, 'auto');
+				}
+
+				if (currentIndex > middleEnd) {
+					currentIndex -= groupSize;
+					scrollToSection(currentIndex, 'auto');
+				}
+
+				syncActiveViewers();
+			}
+
+			function goToMovie(direction: number) {
+				const nextIndex = currentIndex + direction;
+
+				if (isAnimating || !sections[nextIndex]) {
+					return;
+				}
+
+				isAnimating = true;
+				wheelDelta = 0;
+				currentIndex = nextIndex;
+				syncActiveViewers();
+				scrollToSection(currentIndex, 'smooth');
+
+				window.clearTimeout(animationTimer);
+				animationTimer = window.setTimeout(() => {
+					normalizeInfiniteIndex();
+					isAnimating = false;
+				}, scrollLockMs);
+			}
+
+			function requestMovieMove(direction: number) {
+				if (isAnimating) {
+					return;
+				}
+
+				goToMovie(direction);
+			}
+
+			function releaseWheelWhenSettled() {
+				window.clearTimeout(wheelReleaseTimer);
+				wheelReleaseTimer = window.setTimeout(() => {
+					if (isAnimating) {
+						releaseWheelWhenSettled();
+						return;
+					}
+
+					isWheelLocked = false;
+					wheelDelta = 0;
+				}, 180);
+			}
+
+			function onWheel(event: WheelEvent) {
+				event.preventDefault();
+
+				if (isWheelLocked || isAnimating) {
+					isWheelLocked = true;
+					releaseWheelWhenSettled();
+					return;
+				}
+
+				wheelDelta += event.deltaY;
+
+				if (Math.abs(wheelDelta) < wheelThreshold) {
+					window.clearTimeout(wheelResetTimer);
+					wheelResetTimer = window.setTimeout(() => {
+						wheelDelta = 0;
+					}, 140);
+					return;
+				}
+
+				const direction = wheelDelta > 0 ? 1 : -1;
+				wheelDelta = 0;
+				isWheelLocked = true;
+				window.clearTimeout(wheelResetTimer);
+				goToMovie(direction);
+				releaseWheelWhenSettled();
+			}
+
+			function onTouchStart(event: TouchEvent) {
+				touchStartY = event.touches[0]?.clientY ?? 0;
+			}
+
+			function onTouchMove(event: TouchEvent) {
+				if (touchStartY) {
+					event.preventDefault();
+				}
+			}
+
+			function onTouchEnd(event: TouchEvent) {
+				const touchEndY = event.changedTouches[0]?.clientY ?? touchStartY;
+				const distance = touchStartY - touchEndY;
+
+				touchStartY = 0;
+
+				if (Math.abs(distance) < 44) {
+					return;
+				}
+
+				requestMovieMove(distance > 0 ? 1 : -1);
+			}
+
+			function onKeyDown(event: KeyboardEvent) {
+				const nextKeys = ['ArrowDown', 'PageDown', ' '];
+				const previousKeys = ['ArrowUp', 'PageUp'];
+
+				if (nextKeys.includes(event.key)) {
+					event.preventDefault();
+					requestMovieMove(1);
+				}
+
+				if (previousKeys.includes(event.key)) {
+					event.preventDefault();
+					requestMovieMove(-1);
+				}
+			}
+
+			function onResize() {
+				window.cancelAnimationFrame(resizeFrame);
+				resizeFrame = window.requestAnimationFrame(() => {
+					scrollToSection(currentIndex, 'auto');
+				});
+			}
+
+			function destroyViewers() {
+				viewers.forEach((viewer) => viewer.destroy());
+				viewers.clear();
+			}
+
+			if (sections.length) {
+				window.requestAnimationFrame(() => {
+					scrollToSection(currentIndex, 'auto');
+					syncActiveViewers();
+				});
+
+				scroller.addEventListener('wheel', onWheel, { passive: false });
+				scroller.addEventListener('touchstart', onTouchStart, { passive: true });
+				scroller.addEventListener('touchmove', onTouchMove, { passive: false });
+				scroller.addEventListener('touchend', onTouchEnd, { passive: true });
+				window.addEventListener('keydown', onKeyDown);
+				window.addEventListener('resize', onResize);
+			}
+
+			document.addEventListener('astro:before-swap', () => {
+				window.clearTimeout(animationTimer);
+				window.clearTimeout(wheelReleaseTimer);
+				window.clearTimeout(wheelResetTimer);
+				window.cancelAnimationFrame(resizeFrame);
+				scroller.removeEventListener('wheel', onWheel);
+				scroller.removeEventListener('touchstart', onTouchStart);
+				scroller.removeEventListener('touchmove', onTouchMove);
+				scroller.removeEventListener('touchend', onTouchEnd);
+				window.removeEventListener('keydown', onKeyDown);
+				window.removeEventListener('resize', onResize);
+				destroyViewers();
+			});
+		}
+	</script>
 </Layout>

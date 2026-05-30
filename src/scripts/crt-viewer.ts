@@ -15,7 +15,20 @@ import {
 type CrtViewerOptions = {
 	canvas: HTMLCanvasElement;
 	videoSrc?: string;
+	videoSources?: VideoSource[];
 	videoZoom?: number;
+};
+
+type VideoSource = {
+	src: string;
+	type?: string;
+};
+
+export type CrtViewerController = {
+	preload: () => void;
+	play: () => void;
+	pause: () => void;
+	destroy: () => void;
 };
 
 const vertexShader = `
@@ -95,11 +108,13 @@ void main() {
 }
 `;
 
-export function initCrtViewer({ canvas, videoSrc, videoZoom = 1 }: CrtViewerOptions) {
+export function initCrtViewer({ canvas, videoSrc, videoSources = [], videoZoom = 1 }: CrtViewerOptions): CrtViewerController {
 	const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 	const fallbackImage = canvas.parentElement?.querySelector<HTMLImageElement>('[data-crt-fallback]');
+	const sources = videoSources.length ? videoSources : videoSrc ? [{ src: videoSrc, type: 'video/mp4' }] : [];
 	const scene = new Scene();
 	const camera = new PerspectiveCamera(35, 16 / 9, 0.1, 100);
+	const emptyTexture = new Texture();
 	const renderer = new WebGLRenderer({
 		canvas,
 		alpha: true,
@@ -129,7 +144,7 @@ export function initCrtViewer({ canvas, videoSrc, videoZoom = 1 }: CrtViewerOpti
 		vertexShader,
 		fragmentShader,
 		uniforms: {
-			uTexture: { value: new Texture() },
+			uTexture: { value: emptyTexture },
 			uResolution: { value: new Vector2(1, 1) },
 			uTime: { value: 0 },
 			uHasTexture: { value: 0 },
@@ -145,6 +160,9 @@ export function initCrtViewer({ canvas, videoSrc, videoZoom = 1 }: CrtViewerOpti
 	let frameId = 0;
 	let video: HTMLVideoElement | null = null;
 	let activeTexture: Texture | null = null;
+	let isPlaying = false;
+	let isDestroyed = false;
+	let isVideoReady = false;
 
 	function setTexture(texture: Texture, mediaAspect = 16 / 9) {
 		texture.minFilter = LinearFilter;
@@ -159,34 +177,56 @@ export function initCrtViewer({ canvas, videoSrc, videoZoom = 1 }: CrtViewerOpti
 		activeTexture = texture;
 	}
 
-	function showFallback() {
+	function showFallback(revealImage = true) {
+		material.uniforms.uHasTexture.value = 0;
 		canvas.style.opacity = '0';
 		if (fallbackImage) {
-			fallbackImage.style.opacity = '';
+			fallbackImage.style.opacity = revealImage ? '0.8' : '0';
 		}
 	}
 
-	if (videoSrc && !prefersReducedMotion) {
+	function getPlayableSource(targetVideo: HTMLVideoElement) {
+		return sources.find((source) => !source.type || targetVideo.canPlayType(source.type)) ?? sources[0];
+	}
+
+	function createVideo() {
+		if (video || !sources.length || prefersReducedMotion || isDestroyed) {
+			return;
+		}
+
 		video = document.createElement('video');
-		video.src = videoSrc;
 		video.muted = true;
 		video.loop = true;
 		video.playsInline = true;
 		video.preload = 'auto';
 		video.crossOrigin = 'anonymous';
 
+		const source = getPlayableSource(video);
+		if (!source?.src) {
+			showFallback(true);
+			return;
+		}
+
+		video.src = source.src;
+
 		video.addEventListener('canplay', () => {
-			if (!video) {
+			if (!video || isDestroyed) {
 				return;
 			}
 
+			isVideoReady = true;
 			const mediaAspect = video.videoWidth && video.videoHeight ? video.videoWidth / video.videoHeight : 16 / 9;
 			setTexture(new VideoTexture(video), mediaAspect);
-			void video.play().catch(showFallback);
+			renderFrame(performance.now());
+			if (isPlaying) {
+				void video.play().catch(() => showFallback(true));
+			}
 		}, { once: true });
 
-		video.addEventListener('error', showFallback, { once: true });
-		void video.play().catch(showFallback);
+		video.addEventListener('error', () => {
+			showFallback(true);
+			stopRenderLoop();
+		}, { once: true });
 	}
 
 	function resize() {
@@ -200,25 +240,110 @@ export function initCrtViewer({ canvas, videoSrc, videoZoom = 1 }: CrtViewerOpti
 		material.uniforms.uResolution.value.set(width, height);
 	}
 
-	function render(time: number) {
+	function startRenderLoop() {
+		if (frameId || isDestroyed) {
+			return;
+		}
+
+		frameId = window.requestAnimationFrame(render);
+	}
+
+	function stopRenderLoop() {
+		if (!frameId) {
+			return;
+		}
+
+		window.cancelAnimationFrame(frameId);
+		frameId = 0;
+	}
+
+	function renderFrame(time: number) {
 		material.uniforms.uTime.value = time * 0.001;
 		screen.rotation.x = Math.sin(time * 0.00035) * 0.012;
 		screen.rotation.y = Math.cos(time * 0.00028) * 0.018;
 		renderer.render(scene, camera);
-		frameId = window.requestAnimationFrame(render);
+	}
+
+	function render(time: number) {
+		renderFrame(time);
+		frameId = isPlaying ? window.requestAnimationFrame(render) : 0;
 	}
 
 	resize();
 	window.addEventListener('resize', resize);
-	frameId = window.requestAnimationFrame(render);
 
-	return () => {
-		window.cancelAnimationFrame(frameId);
-		window.removeEventListener('resize', resize);
-		video?.pause();
-		activeTexture?.dispose();
-		geometry.dispose();
-		material.dispose();
-		renderer.dispose();
+	return {
+		preload() {
+			if (isDestroyed) {
+				return;
+			}
+
+			if (!sources.length || prefersReducedMotion) {
+				showFallback(true);
+				return;
+			}
+
+			resize();
+			canvas.style.opacity = '1';
+			if (fallbackImage) {
+				fallbackImage.style.opacity = '0';
+			}
+			renderFrame(performance.now());
+			createVideo();
+			if (video && !isVideoReady) {
+				video.load();
+			}
+		},
+		play() {
+			if (isDestroyed) {
+				return;
+			}
+
+			if (!sources.length || prefersReducedMotion) {
+				showFallback(true);
+				return;
+			}
+
+			isPlaying = true;
+			resize();
+			canvas.style.opacity = '1';
+			if (fallbackImage) {
+				fallbackImage.style.opacity = '0';
+			}
+			createVideo();
+			startRenderLoop();
+
+			if (video) {
+				void video.play().catch(() => showFallback(true));
+			}
+		},
+		pause() {
+			if (isDestroyed) {
+				return;
+			}
+
+			isPlaying = false;
+			stopRenderLoop();
+			video?.pause();
+		},
+		destroy() {
+			if (isDestroyed) {
+				return;
+			}
+
+			isDestroyed = true;
+			isPlaying = false;
+			stopRenderLoop();
+			window.removeEventListener('resize', resize);
+			showFallback(false);
+			video?.pause();
+			video?.removeAttribute('src');
+			video?.load();
+			activeTexture?.dispose();
+			emptyTexture.dispose();
+			geometry.dispose();
+			material.dispose();
+			renderer.dispose();
+		},
 	};
 }

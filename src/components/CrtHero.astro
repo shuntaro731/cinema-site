@@ -1,35 +1,37 @@
 ---
-import type { TmdbMovie } from '../lib/tmdb';
+import type { FeaturedMovie } from '../data/movies';
 
-type Props = {
-	movie: TmdbMovie;
-	videoSrc?: string;
-	videoZoom?: number;
-	imageSrc?: string | null;
+type VideoSource = {
+	src: string;
+	type: string;
 };
 
-const { movie, videoSrc, videoZoom = 1, imageSrc } = Astro.props;
-const screenId = `crt-screen-${movie.id}`;
+type Props = {
+	movie: FeaturedMovie;
+	instanceKey?: string;
+	videoSrc?: string;
+	videoSources?: VideoSource[];
+	videoZoom?: number;
+};
+
+const { movie, instanceKey = String(movie.id), videoSrc, videoSources = [], videoZoom = 1 } = Astro.props;
+const screenId = `crt-screen-${movie.id}-${instanceKey}`;
+const hasVideo = Boolean(videoSrc || videoSources.length);
+const serializedVideoSources = JSON.stringify(videoSources);
 ---
 
-<section class="relative flex h-screen snap-center items-center justify-center overflow-hidden bg-black">
-	<div id={screenId} class="relative aspect-video w-[min(90vw,145vh)] overflow-hidden rounded-[7%] bg-black shadow-[0_0_5rem_rgba(0,0,0,0.92)]" aria-label={`${movie.title} のブラウン管ビュー`}>
+<section class="relative flex h-[84vh] shrink-0 snap-center items-center justify-center overflow-hidden bg-black [scroll-snap-stop:always]" data-crt-section>
+	<div id={screenId} class="relative aspect-video w-[min(94vw,145vh)] overflow-hidden rounded-[7%] bg-black shadow-[0_0_5rem_rgba(0,0,0,0.92)]" aria-label="ブラウン管ビュー">
 		{
-			imageSrc ? (
-				<img
-					src={imageSrc}
-					alt=""
-					class="absolute inset-0 h-full w-full object-cover opacity-80 saturate-75 sepia"
-					data-crt-fallback
-					loading="eager"
-					decoding="async"
-				/>
+			!hasVideo ? (
+				<div class="absolute inset-0 bg-[radial-gradient(circle_at_center,_#2d2114_0%,_#090705_70%)]"></div>
 			) : null
 		}
 		<canvas
 			class="absolute inset-0 h-full w-full bg-transparent opacity-0 transition duration-500"
 			data-crt-canvas
 			data-video-src={videoSrc ?? ''}
+			data-video-sources={serializedVideoSources}
 			data-video-zoom={String(videoZoom)}
 		></canvas>
 		<div class="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.055)_50%,rgba(0,0,0,0.12)_50%)] bg-[length:100%_0.28rem] mix-blend-soft-light"></div>
@@ -37,19 +39,3 @@ const screenId = `crt-screen-${movie.id}`;
 		<div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,_transparent_42%,_rgba(0,0,0,0.68)_100%)]"></div>
 	</div>
 </section>
-
-<script>
-	import { initCrtViewer } from '../scripts/crt-viewer';
-
-	const cleanups = Array.from(document.querySelectorAll<HTMLCanvasElement>('[data-crt-canvas]')).map((canvas) =>
-		initCrtViewer({
-			canvas,
-			videoSrc: canvas.dataset.videoSrc || undefined,
-			videoZoom: Number(canvas.dataset.videoZoom) || 1,
-		}),
-	);
-
-	document.addEventListener('astro:before-swap', () => {
-		cleanups.forEach((cleanup) => cleanup());
-	});
-</script>
