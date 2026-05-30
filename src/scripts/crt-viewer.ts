@@ -12,22 +12,38 @@ import {
 	WebGLRenderer,
 } from 'three';
 
+type VideoSource = {
+	src: string;
+	type?: string;
+};
+
+type MovieVideo = {
+	id?: number;
+	sources?: VideoSource[];
+	zoom?: number;
+};
+
 type CrtViewerOptions = {
 	canvas: HTMLCanvasElement;
+	movies?: MovieVideo[];
 	videoSrc?: string;
 	videoSources?: VideoSource[];
 	videoZoom?: number;
 };
 
-type VideoSource = {
-	src: string;
-	type?: string;
+type VideoSlot = {
+	video: HTMLVideoElement;
+	texture: VideoTexture | null;
+	aspect: number;
+	zoom: number;
+	ready: Promise<VideoSlot>;
 };
 
 export type CrtViewerController = {
 	preload: () => void;
 	play: () => void;
 	pause: () => void;
+	switchBy: (direction: number) => void;
 	destroy: () => void;
 };
 
@@ -42,11 +58,17 @@ void main() {
 
 const fragmentShader = `
 uniform sampler2D uTexture;
+uniform sampler2D uNextTexture;
 uniform vec2 uResolution;
 uniform float uTime;
 uniform float uHasTexture;
+uniform float uHasNextTexture;
 uniform float uMediaAspect;
+uniform float uNextMediaAspect;
 uniform float uTextureZoom;
+uniform float uNextTextureZoom;
+uniform float uTransitionProgress;
+uniform float uTransitionDirection;
 uniform vec3 uFallbackColor;
 
 varying vec2 vUv;
@@ -55,17 +77,27 @@ float random(vec2 p) {
 	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
 }
 
-vec2 coverUv(vec2 uv) {
+vec2 coverUv(vec2 uv, float mediaAspect, float textureZoom) {
 	float screenAspect = uResolution.x / max(uResolution.y, 1.0);
 	vec2 fitted = uv;
 
-	if (uMediaAspect > screenAspect) {
-		fitted.x = (uv.x - 0.5) * (screenAspect / uMediaAspect) + 0.5;
+	if (mediaAspect > screenAspect) {
+		fitted.x = (uv.x - 0.5) * (screenAspect / mediaAspect) + 0.5;
 	} else {
-		fitted.y = (uv.y - 0.5) * (uMediaAspect / screenAspect) + 0.5;
+		fitted.y = (uv.y - 0.5) * (mediaAspect / screenAspect) + 0.5;
 	}
 
-	return (fitted - 0.5) / max(uTextureZoom, 0.01) + 0.5;
+	return (fitted - 0.5) / max(textureZoom, 0.01) + 0.5;
+}
+
+vec3 sampleCrt(sampler2D sourceTexture, vec2 uv, float mediaAspect, float textureZoom, float radius, float chromaBoost) {
+	vec2 mediaUv = coverUv(uv, mediaAspect, textureZoom);
+	float chroma = 0.0035 + radius * 0.002 + chromaBoost;
+	float red = texture2D(sourceTexture, clamp(mediaUv + vec2(chroma, 0.0), 0.0, 1.0)).r;
+	float green = texture2D(sourceTexture, clamp(mediaUv, 0.0, 1.0)).g;
+	float blue = texture2D(sourceTexture, clamp(mediaUv - vec2(chroma, 0.0), 0.0, 1.0)).b;
+
+	return vec3(red, green, blue);
 }
 
 void main() {
@@ -81,30 +113,45 @@ void main() {
 		return;
 	}
 
+	float progress = smoothstep(0.0, 1.0, uTransitionProgress);
+	float lineNoise = random(vec2(floor(sampleUv.y * 42.0), floor(uTime * 14.0)));
+	float wipe = uTransitionDirection > 0.0 ? 1.0 - sampleUv.y : sampleUv.y;
+	float transitionLine = progress * 1.08 - 0.04 + (lineNoise - 0.5) * 0.035;
+	float mixAmount = (1.0 - smoothstep(transitionLine - 0.035, transitionLine + 0.085, wipe)) * uHasNextTexture;
+	float band = smoothstep(0.11, 0.0, abs(wipe - transitionLine)) * 0.45;
+	float sweepY = 1.0 - fract(uTime * 0.48);
+	float idleBand = smoothstep(0.07, 0.0, abs(sampleUv.y - sweepY)) * (1.0 - progress);
+	float sweepBand = max(band, idleBand);
+	float sweepShift = sin(sampleUv.y * 70.0 + uTime * 18.0) * 0.0015;
+	sweepShift += (lineNoise - 0.5) * 0.0015;
+	vec2 distortedUv = sampleUv + vec2(sweepShift * sweepBand, sin(sampleUv.x * 18.0 + uTime * 10.0) * sweepBand * 0.001);
+
 	vec3 color = uFallbackColor;
-	vec2 mediaUv = coverUv(sampleUv);
 
 	if (uHasTexture > 0.5) {
-		float chroma = 0.0035 + radius * 0.002;
-		float red = texture2D(uTexture, clamp(mediaUv + vec2(chroma, 0.0), 0.0, 1.0)).r;
-		float green = texture2D(uTexture, clamp(mediaUv, 0.0, 1.0)).g;
-		float blue = texture2D(uTexture, clamp(mediaUv - vec2(chroma, 0.0), 0.0, 1.0)).b;
-		color = vec3(red, green, blue);
+		color = sampleCrt(uTexture, distortedUv, uMediaAspect, uTextureZoom, radius, band * 0.008);
+	}
+
+	if (uHasNextTexture > 0.5) {
+		vec2 nextUv = distortedUv;
+		nextUv.y += (1.0 - progress) * 0.018 * uTransitionDirection;
+		vec3 nextColor = sampleCrt(uNextTexture, nextUv, uNextMediaAspect, uNextTextureZoom, radius, band * 0.006);
+		color = mix(color, nextColor, mixAmount);
 	}
 
 	float scanline = sin((sampleUv.y * uResolution.y * 1.35) + uTime * 18.0) * 0.04;
 	float grille = sin(sampleUv.x * uResolution.x * 3.14159) * 0.025;
 	float noise = random(sampleUv * uResolution.xy + uTime * 48.0) * 0.06;
-	float sweepY = fract(uTime * 0.32);
-	float sweepBand = smoothstep(0.07, 0.0, abs(sampleUv.y - sweepY));
 	float sweepStatic = random(sampleUv * vec2(180.0, 42.0) + floor(uTime * 16.0));
-	float sweepNoise = sweepBand * sweepStatic * 0.2;
+	float sweepNoise = sweepBand * (sweepStatic - 0.5) * 0.05;
+	float transitionDip = progress * (1.0 - progress) * 0.28;
 	float vignette = smoothstep(1.25, 0.28, radius);
 	float glow = smoothstep(0.9, 0.0, radius) * 0.14;
 
 	color *= vec3(1.08, 0.98, 0.74);
 	color += glow;
 	color += noise + sweepNoise;
+	color -= transitionDip;
 	color -= scanline + grille;
 	color *= vignette;
 
@@ -112,10 +159,12 @@ void main() {
 }
 `;
 
-export function initCrtViewer({ canvas, videoSrc, videoSources = [], videoZoom = 1 }: CrtViewerOptions): CrtViewerController {
+export function initCrtViewer({ canvas, movies = [], videoSrc, videoSources = [], videoZoom = 1 }: CrtViewerOptions): CrtViewerController {
 	const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-	const fallbackImage = canvas.parentElement?.querySelector<HTMLImageElement>('[data-crt-fallback]');
-	const sources = videoSources.length ? videoSources : videoSrc ? [{ src: videoSrc, type: 'video/mp4' }] : [];
+	const fallbackImage = canvas.parentElement?.querySelector<HTMLElement>('[data-crt-fallback]');
+	const movieQueue = movies.length
+		? movies
+		: [{ sources: videoSources.length ? videoSources : videoSrc ? [{ src: videoSrc, type: 'video/mp4' }] : [], zoom: videoZoom }];
 	const scene = new Scene();
 	const camera = new PerspectiveCamera(35, 16 / 9, 0.1, 100);
 	const emptyTexture = new Texture();
@@ -149,11 +198,17 @@ export function initCrtViewer({ canvas, videoSrc, videoSources = [], videoZoom =
 		fragmentShader,
 		uniforms: {
 			uTexture: { value: emptyTexture },
+			uNextTexture: { value: emptyTexture },
 			uResolution: { value: new Vector2(1, 1) },
 			uTime: { value: 0 },
 			uHasTexture: { value: 0 },
+			uHasNextTexture: { value: 0 },
 			uMediaAspect: { value: 16 / 9 },
+			uNextMediaAspect: { value: 16 / 9 },
 			uTextureZoom: { value: videoZoom },
+			uNextTextureZoom: { value: videoZoom },
+			uTransitionProgress: { value: 0 },
+			uTransitionDirection: { value: 1 },
 			uFallbackColor: { value: new Color('#241b10') },
 		},
 	});
@@ -162,75 +217,108 @@ export function initCrtViewer({ canvas, videoSrc, videoSources = [], videoZoom =
 	scene.add(screen);
 
 	let frameId = 0;
-	let video: HTMLVideoElement | null = null;
-	let activeTexture: Texture | null = null;
+	let transitionFrameId = 0;
+	let currentIndex = 0;
 	let isPlaying = false;
 	let isDestroyed = false;
-	let isVideoReady = false;
+	let isTransitioning = false;
+	const slots = new Map<number, VideoSlot>();
 
-	function setTexture(texture: Texture, mediaAspect = 16 / 9) {
-		texture.minFilter = LinearFilter;
-		texture.magFilter = LinearFilter;
-		material.uniforms.uTexture.value = texture;
-		material.uniforms.uHasTexture.value = 1;
-		material.uniforms.uMediaAspect.value = mediaAspect;
+	function normalizeIndex(index: number) {
+		const total = movieQueue.length;
+
+		return ((index % total) + total) % total;
+	}
+
+	function getPlayableSource(targetVideo: HTMLVideoElement, sources: VideoSource[]) {
+		return sources.find((source) => !source.type || targetVideo.canPlayType(source.type)) ?? sources[0];
+	}
+
+	function hideFallback() {
 		canvas.style.opacity = '1';
 		if (fallbackImage) {
 			fallbackImage.style.opacity = '0';
 		}
-		activeTexture = texture;
 	}
 
 	function showFallback(revealImage = true) {
 		material.uniforms.uHasTexture.value = 0;
+		material.uniforms.uHasNextTexture.value = 0;
 		canvas.style.opacity = '0';
 		if (fallbackImage) {
-			fallbackImage.style.opacity = revealImage ? '0.8' : '0';
+			fallbackImage.style.opacity = revealImage ? '0.6' : '0';
 		}
 	}
 
-	function getPlayableSource(targetVideo: HTMLVideoElement) {
-		return sources.find((source) => !source.type || targetVideo.canPlayType(source.type)) ?? sources[0];
-	}
-
-	function createVideo() {
-		if (video || !sources.length || prefersReducedMotion || isDestroyed) {
+	function setCurrentTexture(slot: VideoSlot) {
+		if (!slot.texture) {
 			return;
 		}
 
-		video = document.createElement('video');
+		slot.texture.minFilter = LinearFilter;
+		slot.texture.magFilter = LinearFilter;
+		material.uniforms.uTexture.value = slot.texture;
+		material.uniforms.uHasTexture.value = 1;
+		material.uniforms.uMediaAspect.value = slot.aspect;
+		material.uniforms.uTextureZoom.value = slot.zoom;
+		material.uniforms.uHasNextTexture.value = 0;
+		material.uniforms.uTransitionProgress.value = 0;
+		hideFallback();
+	}
+
+	function prepareSlot(index: number) {
+		const normalizedIndex = normalizeIndex(index);
+		const existingSlot = slots.get(normalizedIndex);
+
+		if (existingSlot) {
+			return existingSlot;
+		}
+
+		const movie = movieQueue[normalizedIndex];
+		const sources = movie?.sources ?? [];
+		const video = document.createElement('video');
+		const slot: VideoSlot = {
+			video,
+			texture: null,
+			aspect: 16 / 9,
+			zoom: movie?.zoom ?? 1,
+			ready: Promise.resolve(null as unknown as VideoSlot),
+		};
+
 		video.muted = true;
 		video.loop = true;
 		video.playsInline = true;
 		video.preload = 'auto';
 		video.crossOrigin = 'anonymous';
 
-		const source = getPlayableSource(video);
-		if (!source?.src) {
-			showFallback(true);
-			return;
-		}
+		slot.ready = new Promise<VideoSlot>((resolve, reject) => {
+			const source = getPlayableSource(video, sources);
 
-		video.src = source.src;
-
-		video.addEventListener('canplay', () => {
-			if (!video || isDestroyed) {
+			if (!source?.src) {
+				reject(new Error('No playable video source.'));
 				return;
 			}
 
-			isVideoReady = true;
-			const mediaAspect = video.videoWidth && video.videoHeight ? video.videoWidth / video.videoHeight : 16 / 9;
-			setTexture(new VideoTexture(video), mediaAspect);
-			renderFrame(performance.now());
-			if (isPlaying) {
-				void video.play().catch(() => showFallback(true));
-			}
-		}, { once: true });
+			video.addEventListener('canplay', () => {
+				if (isDestroyed) {
+					reject(new Error('CRT viewer destroyed.'));
+					return;
+				}
 
-		video.addEventListener('error', () => {
-			showFallback(true);
-			stopRenderLoop();
-		}, { once: true });
+				slot.aspect = video.videoWidth && video.videoHeight ? video.videoWidth / video.videoHeight : 16 / 9;
+				slot.texture = new VideoTexture(video);
+				slot.texture.minFilter = LinearFilter;
+				slot.texture.magFilter = LinearFilter;
+				resolve(slot);
+			}, { once: true });
+
+			video.addEventListener('error', () => reject(new Error('Video failed to load.')), { once: true });
+			video.src = source.src;
+			video.load();
+		});
+
+		slots.set(normalizedIndex, slot);
+		return slot;
 	}
 
 	function resize() {
@@ -270,7 +358,88 @@ export function initCrtViewer({ canvas, videoSrc, videoSources = [], videoZoom =
 
 	function render(time: number) {
 		renderFrame(time);
-		frameId = isPlaying ? window.requestAnimationFrame(render) : 0;
+		frameId = isPlaying || isTransitioning ? window.requestAnimationFrame(render) : 0;
+	}
+
+	function preloadAdjacent() {
+		if (movieQueue.length < 2 || prefersReducedMotion) {
+			return;
+		}
+
+		void prepareSlot(currentIndex + 1).ready.catch(() => undefined);
+		void prepareSlot(currentIndex - 1).ready.catch(() => undefined);
+	}
+
+	function playSlot(slot: VideoSlot) {
+		void slot.video.play().catch(() => showFallback(true));
+	}
+
+	function pauseInactiveSlots() {
+		slots.forEach((slot, index) => {
+			if (index !== currentIndex) {
+				slot.video.pause();
+			}
+		});
+	}
+
+	async function loadInitialVideo() {
+		if (!movieQueue.length || prefersReducedMotion || isDestroyed) {
+			showFallback(true);
+			return;
+		}
+
+		try {
+			resize();
+			hideFallback();
+			renderFrame(performance.now());
+			const slot = await prepareSlot(currentIndex).ready;
+			setCurrentTexture(slot);
+			if (isPlaying) {
+				playSlot(slot);
+				startRenderLoop();
+			}
+			preloadAdjacent();
+		} catch {
+			showFallback(true);
+			stopRenderLoop();
+		}
+	}
+
+	function animateTransition(targetIndex: number, targetSlot: VideoSlot, direction: number) {
+		const duration = 620;
+		const startTime = performance.now();
+
+		isTransitioning = true;
+		material.uniforms.uNextTexture.value = targetSlot.texture ?? emptyTexture;
+		material.uniforms.uHasNextTexture.value = targetSlot.texture ? 1 : 0;
+		material.uniforms.uNextMediaAspect.value = targetSlot.aspect;
+		material.uniforms.uNextTextureZoom.value = targetSlot.zoom;
+		material.uniforms.uTransitionDirection.value = direction > 0 ? 1 : -1;
+		playSlot(targetSlot);
+		startRenderLoop();
+
+		function step(time: number) {
+			if (isDestroyed) {
+				return;
+			}
+
+			const progress = Math.min((time - startTime) / duration, 1);
+			material.uniforms.uTransitionProgress.value = progress;
+
+			if (progress < 1) {
+				transitionFrameId = window.requestAnimationFrame(step);
+				return;
+			}
+
+			currentIndex = targetIndex;
+			setCurrentTexture(targetSlot);
+			isTransitioning = false;
+			transitionFrameId = 0;
+			pauseInactiveSlots();
+			preloadAdjacent();
+		}
+
+		transitionFrameId = window.requestAnimationFrame(step);
 	}
 
 	resize();
@@ -282,43 +451,20 @@ export function initCrtViewer({ canvas, videoSrc, videoSources = [], videoZoom =
 				return;
 			}
 
-			if (!sources.length || prefersReducedMotion) {
-				showFallback(true);
-				return;
-			}
-
-			resize();
-			canvas.style.opacity = '1';
-			if (fallbackImage) {
-				fallbackImage.style.opacity = '0';
-			}
-			renderFrame(performance.now());
-			createVideo();
-			if (video && !isVideoReady) {
-				video.load();
-			}
+			void loadInitialVideo();
 		},
 		play() {
 			if (isDestroyed) {
 				return;
 			}
 
-			if (!sources.length || prefersReducedMotion) {
-				showFallback(true);
-				return;
-			}
-
 			isPlaying = true;
-			resize();
-			canvas.style.opacity = '1';
-			if (fallbackImage) {
-				fallbackImage.style.opacity = '0';
-			}
-			createVideo();
-			startRenderLoop();
+			void loadInitialVideo();
 
-			if (video) {
-				void video.play().catch(() => showFallback(true));
+			const slot = slots.get(currentIndex);
+			if (slot?.texture) {
+				playSlot(slot);
+				startRenderLoop();
 			}
 		},
 		pause() {
@@ -328,7 +474,27 @@ export function initCrtViewer({ canvas, videoSrc, videoSources = [], videoZoom =
 
 			isPlaying = false;
 			stopRenderLoop();
-			video?.pause();
+			slots.forEach((slot) => slot.video.pause());
+		},
+		switchBy(direction: number) {
+			if (isDestroyed || isTransitioning || movieQueue.length < 2 || prefersReducedMotion) {
+				return;
+			}
+
+			const normalizedDirection = direction > 0 ? 1 : -1;
+			const targetIndex = normalizeIndex(currentIndex + normalizedDirection);
+			const targetSlot = prepareSlot(targetIndex);
+
+			void targetSlot.ready
+				.then((readySlot) => {
+					if (isDestroyed || isTransitioning) {
+						return;
+					}
+
+					hideFallback();
+					animateTransition(targetIndex, readySlot, normalizedDirection);
+				})
+				.catch(() => undefined);
 		},
 		destroy() {
 			if (isDestroyed) {
@@ -338,12 +504,15 @@ export function initCrtViewer({ canvas, videoSrc, videoSources = [], videoZoom =
 			isDestroyed = true;
 			isPlaying = false;
 			stopRenderLoop();
+			window.cancelAnimationFrame(transitionFrameId);
 			window.removeEventListener('resize', resize);
 			showFallback(false);
-			video?.pause();
-			video?.removeAttribute('src');
-			video?.load();
-			activeTexture?.dispose();
+			slots.forEach((slot) => {
+				slot.video.pause();
+				slot.video.removeAttribute('src');
+				slot.video.load();
+				slot.texture?.dispose();
+			});
 			emptyTexture.dispose();
 			geometry.dispose();
 			material.dispose();
