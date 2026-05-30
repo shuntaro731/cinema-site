@@ -81,12 +81,6 @@ const middleMovieIndex = featuredMovies.length;
 				}
 			}
 
-			function addEquivalentIndexes(indexes: Set<number>, index: number) {
-				addIndex(indexes, index);
-				addIndex(indexes, index - groupSize);
-				addIndex(indexes, index + groupSize);
-			}
-
 			function getViewer(section: HTMLElement) {
 				const existingViewer = viewers.get(section);
 
@@ -120,7 +114,7 @@ const middleMovieIndex = featuredMovies.length;
 				}
 
 				for (let offset = -2; offset <= 2; offset += 1) {
-					addEquivalentIndexes(preloadIndexes, currentIndex + offset);
+					addIndex(preloadIndexes, currentIndex + offset);
 				}
 
 				sections.forEach((section, index) => {

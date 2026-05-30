@@ -20,13 +20,15 @@ const hasVideo = Boolean(videoSrc || videoSources.length);
 const serializedVideoSources = JSON.stringify(videoSources);
 ---
 
-<section class="relative flex h-[84vh] shrink-0 snap-center items-center justify-center overflow-hidden bg-black [scroll-snap-stop:always]" data-crt-section>
-	<div id={screenId} class="relative aspect-video w-[min(94vw,145vh)] overflow-hidden rounded-[7%] bg-black shadow-[0_0_5rem_rgba(0,0,0,0.92)]" aria-label="ブラウン管ビュー">
-		{
-			!hasVideo ? (
-				<div class="absolute inset-0 bg-[radial-gradient(circle_at_center,_#2d2114_0%,_#090705_70%)]"></div>
-			) : null
-		}
+<section class="relative flex h-[76vh] shrink-0 snap-center items-center justify-center overflow-visible bg-black [scroll-snap-stop:always]" data-crt-section>
+	<div id={screenId} class="relative aspect-video w-[min(94vw,155vh)] overflow-hidden rounded-[7%] bg-black shadow-[0_0_5rem_rgba(0,0,0,0.92)]" aria-label="ブラウン管ビュー">
+		<div
+			class:list={[
+				'absolute inset-0 bg-[radial-gradient(circle_at_center,_#2d2114_0%,_#090705_70%)] transition duration-500',
+				hasVideo ? 'opacity-0' : 'opacity-60',
+			]}
+			data-crt-fallback
+		></div>
 		<canvas
 			class="absolute inset-0 h-full w-full bg-transparent opacity-0 transition duration-500"
 			data-crt-canvas
@@ -36,6 +38,6 @@ const serializedVideoSources = JSON.stringify(videoSources);
 		></canvas>
 		<div class="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.055)_50%,rgba(0,0,0,0.12)_50%)] bg-[length:100%_0.28rem] mix-blend-soft-light"></div>
 		<div class="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(90deg,rgba(255,0,0,0.045)_0,rgba(255,0,0,0.045)_0.12rem,rgba(0,255,80,0.035)_0.12rem,rgba(0,255,80,0.035)_0.24rem,rgba(0,80,255,0.04)_0.24rem,rgba(0,80,255,0.04)_0.36rem)] mix-blend-screen opacity-35"></div>
-		<div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,_transparent_42%,_rgba(0,0,0,0.68)_100%)]"></div>
+		<div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,_transparent_50%,_rgba(0,0,0,0.42)_100%)]"></div>
 	</div>
 </section>

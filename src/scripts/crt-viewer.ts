@@ -73,7 +73,7 @@ void main() {
 	vec2 centered = uv * 2.0 - 1.0;
 	float radius = dot(centered, centered);
 
-	vec2 warped = centered * (1.0 + radius * 0.16);
+	vec2 warped = centered * (1.0 + radius * 0.11);
 	vec2 sampleUv = warped * 0.5 + 0.5;
 
 	if (sampleUv.x < 0.0 || sampleUv.x > 1.0 || sampleUv.y < 0.0 || sampleUv.y > 1.0) {
@@ -95,12 +95,16 @@ void main() {
 	float scanline = sin((sampleUv.y * uResolution.y * 1.35) + uTime * 18.0) * 0.04;
 	float grille = sin(sampleUv.x * uResolution.x * 3.14159) * 0.025;
 	float noise = random(sampleUv * uResolution.xy + uTime * 48.0) * 0.06;
+	float sweepY = fract(uTime * 0.32);
+	float sweepBand = smoothstep(0.07, 0.0, abs(sampleUv.y - sweepY));
+	float sweepStatic = random(sampleUv * vec2(180.0, 42.0) + floor(uTime * 16.0));
+	float sweepNoise = sweepBand * sweepStatic * 0.2;
 	float vignette = smoothstep(1.25, 0.28, radius);
 	float glow = smoothstep(0.9, 0.0, radius) * 0.14;
 
 	color *= vec3(1.08, 0.98, 0.74);
 	color += glow;
-	color += noise;
+	color += noise + sweepNoise;
 	color -= scanline + grille;
 	color *= vignette;
 
@@ -134,7 +138,7 @@ export function initCrtViewer({ canvas, videoSrc, videoSources = [], videoZoom =
 		const nx = x / 2.275;
 		const ny = y / 1.28;
 		const edge = nx * nx + ny * ny;
-		positions.setZ(index, -edge * 0.24);
+		positions.setZ(index, -edge * 0.16);
 	}
 
 	positions.needsUpdate = true;
