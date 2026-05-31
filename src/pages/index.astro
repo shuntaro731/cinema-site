@@ -10,7 +10,7 @@ import Layout from '../layouts/Layout.astro';
 		data-crt-root
 	>
 		{featuredMovies.length ? <CrtHero movies={featuredMovies} /> : (
-			<section class="flex min-h-screen items-center justify-center bg-[#050403] px-6 text-center text-[#f7edc5]">
+			<section class="flex min-h-screen items-center justify-center bg-crt-black px-6 text-center text-crt-cream">
 				<p>表示できる映画がありません。</p>
 			</section>
 		)}
@@ -21,22 +21,41 @@ import Layout from '../layouts/Layout.astro';
 
 		const root = document.querySelector<HTMLElement>('[data-crt-root]');
 		const canvas = root?.querySelector<HTMLCanvasElement>('[data-crt-canvas]');
+		const navDots = Array.from(root?.querySelectorAll<HTMLButtonElement>('[data-crt-nav-dot]') ?? []);
 
 		if (root && canvas && root.dataset.crtReady !== 'true') {
 			root.dataset.crtReady = 'true';
 
+			function updateNav(activeIndex: number) {
+				navDots.forEach((dot, index) => {
+					const isActive = index === activeIndex;
+
+					dot.dataset.active = isActive ? 'true' : 'false';
+					dot.setAttribute('aria-current', isActive ? 'true' : 'false');
+				});
+			}
+
+			function normalizeNavIndex(index: number) {
+				const total = navDots.length;
+
+				return total ? ((index % total) + total) % total : 0;
+			}
+
 			const viewer = initCrtViewer({
 				canvas,
 				movies: JSON.parse(canvas.dataset.movies || '[]'),
+				onChange: updateNav,
 			});
-			const wheelThreshold = 44;
-			const inputLockMs = 720;
+			const wheelThreshold = 36;
+			const inputLockMs = 460;
+			const wheelMomentumGuardMs = 220;
 
 			let wheelDelta = 0;
 			let isInputLocked = false;
 			let touchStartY = 0;
 			let wheelResetTimer = 0;
 			let inputUnlockTimer = 0;
+			let wheelMomentumUntil = 0;
 
 			function unlockInput() {
 				window.clearTimeout(inputUnlockTimer);
@@ -53,14 +72,21 @@ import Layout from '../layouts/Layout.astro';
 
 				isInputLocked = true;
 				wheelDelta = 0;
-				viewer.switchBy(direction);
-				unlockInput();
+				if (viewer.switchBy(direction)) {
+					updateNav(normalizeNavIndex(viewer.getIndex() + (direction > 0 ? 1 : -1)));
+					wheelMomentumUntil = performance.now() + inputLockMs + wheelMomentumGuardMs;
+					unlockInput();
+					return;
+				}
+
+				isInputLocked = false;
 			}
 
 			function onWheel(event: WheelEvent) {
 				event.preventDefault();
 
-				if (isInputLocked) {
+				if (isInputLocked || performance.now() < wheelMomentumUntil) {
+					wheelDelta = 0;
 					return;
 				}
 
@@ -115,7 +141,33 @@ import Layout from '../layouts/Layout.astro';
 				}
 			}
 
+			function onNavClick(event: MouseEvent) {
+				const button = event.currentTarget as HTMLButtonElement;
+				const targetIndex = Number(button.dataset.index);
+
+				if (!Number.isFinite(targetIndex)) {
+					return;
+				}
+
+				if (targetIndex === viewer.getIndex() || isInputLocked) {
+					return;
+				}
+
+				isInputLocked = true;
+				wheelDelta = 0;
+				if (viewer.switchTo(targetIndex)) {
+					updateNav(targetIndex);
+					wheelMomentumUntil = performance.now() + wheelMomentumGuardMs;
+					unlockInput();
+					return;
+				}
+
+				isInputLocked = false;
+			}
+
+			updateNav(0);
 			viewer.play();
+			navDots.forEach((dot) => dot.addEventListener('click', onNavClick));
 			root.addEventListener('wheel', onWheel, { passive: false });
 			root.addEventListener('touchstart', onTouchStart, { passive: true });
 			root.addEventListener('touchmove', onTouchMove, { passive: false });
@@ -130,6 +182,7 @@ import Layout from '../layouts/Layout.astro';
 				root.removeEventListener('touchmove', onTouchMove);
 				root.removeEventListener('touchend', onTouchEnd);
 				window.removeEventListener('keydown', onKeyDown);
+				navDots.forEach((dot) => dot.removeEventListener('click', onNavClick));
 				viewer.destroy();
 			});
 		}

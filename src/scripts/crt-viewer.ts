@@ -29,6 +29,7 @@ type CrtViewerOptions = {
 	videoSrc?: string;
 	videoSources?: VideoSource[];
 	videoZoom?: number;
+	onChange?: (index: number) => void;
 };
 
 type VideoSlot = {
@@ -43,7 +44,9 @@ export type CrtViewerController = {
 	preload: () => void;
 	play: () => void;
 	pause: () => void;
-	switchBy: (direction: number) => void;
+	switchBy: (direction: number) => boolean;
+	switchTo: (index: number) => boolean;
+	getIndex: () => number;
 	destroy: () => void;
 };
 
@@ -108,11 +111,6 @@ void main() {
 	vec2 warped = centered * (1.0 + radius * 0.11);
 	vec2 sampleUv = warped * 0.5 + 0.5;
 
-	if (sampleUv.x < 0.0 || sampleUv.x > 1.0 || sampleUv.y < 0.0 || sampleUv.y > 1.0) {
-		gl_FragColor = vec4(0.015, 0.012, 0.008, 1.0);
-		return;
-	}
-
 	float progress = smoothstep(0.0, 1.0, uTransitionProgress);
 	float lineNoise = random(vec2(floor(sampleUv.y * 42.0), floor(uTime * 14.0)));
 	float wipe = uTransitionDirection > 0.0 ? 1.0 - sampleUv.y : sampleUv.y;
@@ -145,7 +143,6 @@ void main() {
 	float sweepStatic = random(sampleUv * vec2(180.0, 42.0) + floor(uTime * 16.0));
 	float sweepNoise = sweepBand * (sweepStatic - 0.5) * 0.05;
 	float transitionDip = progress * (1.0 - progress) * 0.28;
-	float vignette = smoothstep(1.25, 0.28, radius);
 	float glow = smoothstep(0.9, 0.0, radius) * 0.14;
 
 	color *= vec3(1.08, 0.98, 0.74);
@@ -153,13 +150,12 @@ void main() {
 	color += noise + sweepNoise;
 	color -= transitionDip;
 	color -= scanline + grille;
-	color *= vignette;
 
 	gl_FragColor = vec4(color, 1.0);
 }
 `;
 
-export function initCrtViewer({ canvas, movies = [], videoSrc, videoSources = [], videoZoom = 1 }: CrtViewerOptions): CrtViewerController {
+export function initCrtViewer({ canvas, movies = [], videoSrc, videoSources = [], videoZoom = 1, onChange }: CrtViewerOptions): CrtViewerController {
 	const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 	const fallbackImage = canvas.parentElement?.querySelector<HTMLElement>('[data-crt-fallback]');
 	const movieQueue = movies.length
@@ -178,14 +174,16 @@ export function initCrtViewer({ canvas, movies = [], videoSrc, videoSources = []
 	camera.position.z = 4.2;
 	renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
 
-	const geometry = new PlaneGeometry(4.55, 2.56, 88, 52);
+	const planeWidth = 4.75;
+	const planeHeight = 3.04;
+	const geometry = new PlaneGeometry(planeWidth, planeHeight, 88, 52);
 	const positions = geometry.attributes.position;
 
 	for (let index = 0; index < positions.count; index += 1) {
 		const x = positions.getX(index);
 		const y = positions.getY(index);
-		const nx = x / 2.275;
-		const ny = y / 1.28;
+		const nx = x / (planeWidth / 2);
+		const ny = y / (planeHeight / 2);
 		const edge = nx * nx + ny * ny;
 		positions.setZ(index, -edge * 0.16);
 	}
@@ -222,6 +220,7 @@ export function initCrtViewer({ canvas, movies = [], videoSrc, videoSources = []
 	let isPlaying = false;
 	let isDestroyed = false;
 	let isTransitioning = false;
+	let isSwitchPending = false;
 	const slots = new Map<number, VideoSlot>();
 
 	function normalizeIndex(index: number) {
@@ -394,6 +393,7 @@ export function initCrtViewer({ canvas, movies = [], videoSrc, videoSources = []
 			renderFrame(performance.now());
 			const slot = await prepareSlot(currentIndex).ready;
 			setCurrentTexture(slot);
+			onChange?.(currentIndex);
 			if (isPlaying) {
 				playSlot(slot);
 				startRenderLoop();
@@ -406,7 +406,7 @@ export function initCrtViewer({ canvas, movies = [], videoSrc, videoSources = []
 	}
 
 	function animateTransition(targetIndex: number, targetSlot: VideoSlot, direction: number) {
-		const duration = 620;
+		const duration = 380;
 		const startTime = performance.now();
 
 		isTransitioning = true;
@@ -433,6 +433,7 @@ export function initCrtViewer({ canvas, movies = [], videoSrc, videoSources = []
 
 			currentIndex = targetIndex;
 			setCurrentTexture(targetSlot);
+			onChange?.(currentIndex);
 			isTransitioning = false;
 			transitionFrameId = 0;
 			pauseInactiveSlots();
@@ -440,6 +441,39 @@ export function initCrtViewer({ canvas, movies = [], videoSrc, videoSources = []
 		}
 
 		transitionFrameId = window.requestAnimationFrame(step);
+	}
+
+	function switchToIndex(index: number, directionOverride?: number) {
+		if (isDestroyed || isTransitioning || isSwitchPending || movieQueue.length < 2 || prefersReducedMotion) {
+			return false;
+		}
+
+		const targetIndex = normalizeIndex(index);
+
+		if (targetIndex === currentIndex) {
+			return false;
+		}
+
+		const direction = directionOverride ?? (targetIndex > currentIndex ? 1 : -1);
+		const targetSlot = prepareSlot(targetIndex);
+
+		isSwitchPending = true;
+		void targetSlot.ready
+			.then((readySlot) => {
+				if (isDestroyed || isTransitioning) {
+					isSwitchPending = false;
+					return;
+				}
+
+				hideFallback();
+				isSwitchPending = false;
+				animateTransition(targetIndex, readySlot, direction);
+			})
+			.catch(() => {
+				isSwitchPending = false;
+			});
+
+		return true;
 	}
 
 	resize();
@@ -477,24 +511,15 @@ export function initCrtViewer({ canvas, movies = [], videoSrc, videoSources = []
 			slots.forEach((slot) => slot.video.pause());
 		},
 		switchBy(direction: number) {
-			if (isDestroyed || isTransitioning || movieQueue.length < 2 || prefersReducedMotion) {
-				return;
-			}
-
 			const normalizedDirection = direction > 0 ? 1 : -1;
-			const targetIndex = normalizeIndex(currentIndex + normalizedDirection);
-			const targetSlot = prepareSlot(targetIndex);
 
-			void targetSlot.ready
-				.then((readySlot) => {
-					if (isDestroyed || isTransitioning) {
-						return;
-					}
-
-					hideFallback();
-					animateTransition(targetIndex, readySlot, normalizedDirection);
-				})
-				.catch(() => undefined);
+			return switchToIndex(currentIndex + normalizedDirection, normalizedDirection);
+		},
+		switchTo(index: number) {
+			return switchToIndex(index);
+		},
+		getIndex() {
+			return currentIndex;
 		},
 		destroy() {
 			if (isDestroyed) {

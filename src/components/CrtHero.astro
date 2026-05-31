@@ -8,8 +8,9 @@ type Props = {
 const { movies } = Astro.props;
 const screenId = 'crt-screen-main';
 const serializedMovies = JSON.stringify(
-	movies.map((movie) => ({
+	movies.map((movie, index) => ({
 		id: movie.id,
+		label: `Movie ${index + 1}`,
 		sources: movie.teaserSources ?? [],
 		zoom: movie.teaserZoom ?? 1,
 	})),
@@ -18,10 +19,10 @@ const hasVideo = movies.some((movie) => movie.teaserSources?.length);
 ---
 
 <section class="relative flex min-h-screen items-center justify-center overflow-hidden bg-black" data-crt-section>
-	<div id={screenId} class="relative aspect-video w-[min(110vw,176vh)] overflow-hidden rounded-[7%] bg-black shadow-[0_0_5rem_rgba(0,0,0,0.92)]" aria-label="ブラウン管ビュー">
+	<div id={screenId} class="relative aspect-[16/10] w-[min(94vw,150vh)] overflow-hidden rounded-[7%] bg-black" aria-label="ブラウン管ビュー">
 		<div
 			class:list={[
-				'absolute inset-0 bg-[radial-gradient(circle_at_center,_#2d2114_0%,_#090705_70%)] transition duration-500',
+				'crt-fallback-glow absolute inset-0 transition duration-500',
 				hasVideo ? 'opacity-0' : 'opacity-60',
 			]}
 			data-crt-fallback
@@ -31,8 +32,23 @@ const hasVideo = movies.some((movie) => movie.teaserSources?.length);
 			data-crt-canvas
 			data-movies={serializedMovies}
 		></canvas>
-		<div class="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.055)_50%,rgba(0,0,0,0.12)_50%)] bg-[length:100%_0.28rem] mix-blend-soft-light"></div>
-		<div class="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(90deg,rgba(255,0,0,0.045)_0,rgba(255,0,0,0.045)_0.12rem,rgba(0,255,80,0.035)_0.12rem,rgba(0,255,80,0.035)_0.24rem,rgba(0,80,255,0.04)_0.24rem,rgba(0,80,255,0.04)_0.36rem)] mix-blend-screen opacity-35"></div>
-		<div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,_transparent_50%,_rgba(0,0,0,0.42)_100%)]"></div>
+		<div class="crt-scanlines pointer-events-none absolute inset-0 mix-blend-soft-light"></div>
+		<div class="crt-grille pointer-events-none absolute inset-0 mix-blend-screen opacity-35"></div>
 	</div>
+	<nav class="absolute right-5 top-1/2 z-40 flex -translate-y-1/2 flex-col items-center gap-4" aria-label="動画ナビゲーション">
+		{
+			movies.map((movie, index) => (
+				<button
+					type="button"
+					class="h-2 w-2 rounded-full bg-crt-cream/35 transition-all duration-200 hover:bg-crt-cream focus:outline-none focus-visible:ring-2 focus-visible:ring-crt-cream data-[active=true]:h-5 data-[active=true]:bg-crt-cream data-[active=true]:shadow-[0_0_0.75rem_rgb(247_237_197/48%)]"
+					aria-label={`Movie ${index + 1} に切り替え`}
+					aria-current={index === 0 ? 'true' : 'false'}
+					data-crt-nav-dot
+					data-index={index}
+					data-active={index === 0 ? 'true' : 'false'}
+					data-movie-id={movie.id}
+				></button>
+			))
+		}
+	</nav>
 </section>

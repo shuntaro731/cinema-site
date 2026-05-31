@@ -1,13 +1,36 @@
 @import "tailwindcss";
 
-html {
-	background: #050403;
-	color: #f7edc5;
+@theme {
+	--color-crt-black: #050403;
+	--color-crt-cream: #f7edc5;
+}
+
+@layer utilities {
+	.crt-fallback-glow {
+		background: radial-gradient(circle at center, #2d2114 0%, #090705 70%);
+	}
+
+	.crt-scanlines {
+		background-image: linear-gradient(rgb(255 255 255 / 5.5%) 50%, rgb(0 0 0 / 12%) 50%);
+		background-size: 100% 0.28rem;
+	}
+
+	.crt-grille {
+		background-image: repeating-linear-gradient(
+			90deg,
+			rgb(255 0 0 / 4.5%) 0,
+			rgb(255 0 0 / 4.5%) 0.12rem,
+			rgb(0 255 80 / 3.5%) 0.12rem,
+			rgb(0 255 80 / 3.5%) 0.24rem,
+			rgb(0 80 255 / 4%) 0.24rem,
+			rgb(0 80 255 / 4%) 0.36rem
+		);
+	}
+
 }
 
 body {
 	min-height: 100%;
-	background: #050403;
 }
 
 button,
