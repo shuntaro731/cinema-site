@@ -1,0 +1,31 @@
+---
+import type { FeaturedMovie } from '../data/movies';
+
+type Props = {
+	movies: FeaturedMovie[];
+};
+
+const { movies } = Astro.props;
+---
+
+<nav class="absolute bottom-12 left-1/2 z-30 flex w-fit -translate-x-1/2 items-center justify-center gap-2.5" aria-label="動画ナビゲーション">
+	{
+		movies.map((_, index) => (
+			<button
+				type="button"
+				class="relative h-1.5 w-12 shrink-0 overflow-hidden rounded-full bg-white/15 transition-all duration-200 hover:bg-white/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-white data-[active=true]:bg-white/25"
+				aria-label={`Movie ${index + 1} に切り替え`}
+				aria-current={index === 0 ? 'true' : 'false'}
+				data-crt-nav-dot
+				data-index={index}
+				data-active={index === 0 ? 'true' : 'false'}
+			>
+				<span
+					class="pointer-events-none absolute inset-y-0 left-0 w-0 rounded-full bg-white opacity-40 shadow-[0_0_0.75rem_rgb(239_237_222/28%)] transition-[opacity,width] duration-100 data-[active=true]:opacity-100"
+					data-crt-nav-progress
+					data-active={index === 0 ? 'true' : 'false'}
+				></span>
+			</button>
+		))
+	}
+</nav>

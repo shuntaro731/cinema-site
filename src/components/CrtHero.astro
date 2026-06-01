@@ -1,5 +1,6 @@
 ---
 import tohoLogo from '../assets/toho-logo.svg?url';
+import CrtMovieNav from './CrtMovieNav.astro';
 import type { FeaturedMovie } from '../data/movies';
 
 type Props = {
@@ -19,7 +20,7 @@ const serializedMovies = JSON.stringify(
 
 <section class="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-black px-6 py-10">
 	<!-- ロゴ -->
-	<img class="absolute left-10 top-12 z-1 w-36" src={tohoLogo} alt="TOHO CINEMA" />
+	<img class="absolute left-10 top-12 z-1 w-32" src={tohoLogo} alt="TOHO CINEMA" />
 	<div class="relative flex w-[min(88vw,134vh)] flex-col items-center">
 		<div
 			id="crt-screen-main"
@@ -40,26 +41,7 @@ const serializedMovies = JSON.stringify(
 			<div class="crt-screen-shade pointer-events-none absolute inset-0"></div>
 			<div class="crt-scanlines pointer-events-none absolute inset-0 mix-blend-soft-light"></div>
 		</div>
-		<nav class="absolute bottom-10 left-1/2 z-30 flex w-32 -translate-x-1/2 items-center justify-center gap-1.5" aria-label="動画ナビゲーション">
-			{
-				movies.map((movie, index) => (
-					<button
-						type="button"
-						class="relative h-2 w-10 overflow-hidden rounded-full bg-stone-500/35 transition-all duration-200 hover:bg-stone-300/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-300 data-[active=true]:bg-stone-400/40"
-						aria-label={`Movie ${index + 1} に切り替え`}
-						aria-current={index === 0 ? 'true' : 'false'}
-						data-crt-nav-dot
-						data-index={index}
-						data-active={index === 0 ? 'true' : 'false'}
-					>
-						<span
-							class="pointer-events-none absolute inset-y-0 left-0 w-0 rounded-full bg-stone-100 opacity-40 shadow-[0_0_0.75rem_rgb(214_211_209/28%)] transition-[opacity,width] duration-100 data-[active=true]:opacity-100"
-							data-crt-nav-progress
-							data-active={index === 0 ? 'true' : 'false'}
-						></span>
-					</button>
-				))
-			}
-		</nav>
+		<!-- 動画切り替えnav -->
+		<CrtMovieNav movies={movies} />
 	</div>
 </section>
