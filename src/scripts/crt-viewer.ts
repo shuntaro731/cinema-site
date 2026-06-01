@@ -1,3 +1,4 @@
+// three.jsは理解していないので、ブラックボックス...
 import {
 	BufferGeometry,
 	Color,
@@ -19,7 +20,7 @@ type VideoSource = {
 };
 
 type MovieVideo = {
-	poster?: string;
+	movieImage?: string;
 	sources?: VideoSource[];
 	zoom?: number;
 };
@@ -28,6 +29,7 @@ type CrtViewerOptions = {
 	canvas: HTMLCanvasElement;
 	movies?: MovieVideo[];
 	onChange?: (index: number) => void;
+	onProgress?: (index: number, progress: number) => void;
 };
 
 type VideoSlot = {
@@ -168,15 +170,20 @@ void main() {
 	vec2 sampleUv = warped * 0.5 + 0.5;
 
 	float progress = smoothstep(0.0, 1.0, uTransitionProgress);
-	float lineNoise = random(vec2(floor(sampleUv.y * 42.0), floor(uTime * 14.0)));
-	float wipe = uTransitionDirection > 0.0 ? 1.0 - sampleUv.y : sampleUv.y;
+	float lineNoise = random(vec2(floor(sampleUv.x * 42.0), floor(uTime * 14.0)));
+	float wipe = uTransitionDirection > 0.0 ? 1.0 - sampleUv.x : sampleUv.x;
 	float transitionLine = progress * 1.08 - 0.04 + (lineNoise - 0.5) * 0.035;
 	float mixAmount = (1.0 - smoothstep(transitionLine - 0.035, transitionLine + 0.085, wipe)) * uHasNextTexture;
 	float band = smoothstep(0.11, 0.0, abs(wipe - transitionLine)) * 0.45;
 	float sweepBand = band;
-	float sweepShift = sin(sampleUv.y * 70.0 + uTime * 18.0) * 0.0015;
+	float sweepShift = sin(sampleUv.x * 70.0 + uTime * 18.0) * 0.0015;
 	sweepShift += (lineNoise - 0.5) * 0.0015;
-	vec2 distortedUv = sampleUv + vec2(sweepShift * sweepBand, sin(sampleUv.x * 18.0 + uTime * 10.0) * sweepBand * 0.001);
+	float noiseCycle = floor(uTime * 1.25);
+	float noiseProgress = fract(uTime * 1.25);
+	float noiseCenter = 1.08 - noiseProgress * 1.16;
+	float noiseBand = step(abs(sampleUv.y - noiseCenter), 0.012) * step(0.38, random(vec2(noiseCycle, 12.0)));
+	float noiseShift = (random(vec2(noiseCycle, 24.0)) - 0.5) * noiseBand * 0.08;
+	vec2 distortedUv = sampleUv + vec2(sin(sampleUv.y * 18.0 + uTime * 10.0) * sweepBand * 0.001 + noiseShift, sweepShift * sweepBand);
 
 	vec3 color = uFallbackColor;
 
@@ -186,7 +193,7 @@ void main() {
 
 	if (uHasNextTexture > 0.5) {
 		vec2 nextUv = distortedUv;
-		nextUv.y += (1.0 - progress) * 0.018 * uTransitionDirection;
+		nextUv.x += (1.0 - progress) * 0.018 * uTransitionDirection;
 		vec3 nextColor = sampleCrt(uNextTexture, nextUv, uNextMediaAspect, uNextTextureZoom, radius, band * 0.006);
 		color = mix(color, nextColor, mixAmount);
 	}
@@ -197,7 +204,7 @@ void main() {
 	float dotSpark = (random(dotCell + floor(uTime * 28.0)) - 0.5) * dotShape * 0.09;
 	float dotRun = step(0.86, random(dotCell + vec2(19.0, 43.0))) * dotShape * 0.04;
 	float noise = dotSpark + dotRun;
-	float sweepStatic = random(sampleUv * vec2(180.0, 42.0) + floor(uTime * 16.0));
+	float sweepStatic = random(sampleUv * vec2(42.0, 180.0) + floor(uTime * 16.0));
 	float sweepNoise = sweepBand * (sweepStatic - 0.5) * 0.05;
 	float transitionDip = progress * (1.0 - progress) * 0.28;
 	float glow = smoothstep(0.9, 0.0, radius) * 0.14;
@@ -211,7 +218,7 @@ void main() {
 }
 `;
 
-export function initCrtViewer({ canvas, movies = [], onChange }: CrtViewerOptions): CrtViewerController {
+export function initCrtViewer({ canvas, movies = [], onChange, onProgress }: CrtViewerOptions): CrtViewerController {
 	const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 	const fallbackImage = canvas.parentElement?.querySelector<HTMLElement>('[data-crt-fallback]');
 	const movieQueue = movies;
@@ -260,6 +267,7 @@ export function initCrtViewer({ canvas, movies = [], onChange }: CrtViewerOption
 	let isDestroyed = false;
 	let isTransitioning = false;
 	let isSwitchPending = false;
+	let hasQueuedNearEndPreload = false;
 	const slots = new Map<number, VideoSlot>();
 
 	function normalizeIndex(index: number) {
@@ -288,14 +296,14 @@ export function initCrtViewer({ canvas, movies = [], onChange }: CrtViewerOption
 		}
 	}
 
-	function updateFallbackPoster(index: number) {
+	function updateFallbackMovieImage(index: number) {
 		if (!fallbackImage) {
 			return;
 		}
 
-		const poster = movieQueue[normalizeIndex(index)]?.poster;
-		if (poster) {
-			fallbackImage.style.backgroundImage = `url("${encodeURI(poster)}")`;
+		const movieImage = movieQueue[normalizeIndex(index)]?.movieImage;
+		if (movieImage) {
+			fallbackImage.style.backgroundImage = `url("${encodeURI(movieImage)}")`;
 		}
 	}
 
@@ -304,6 +312,7 @@ export function initCrtViewer({ canvas, movies = [], onChange }: CrtViewerOption
 			return;
 		}
 
+		hasQueuedNearEndPreload = false;
 		material.uniforms.uTexture.value = slot.texture;
 		material.uniforms.uHasTexture.value = 1;
 		material.uniforms.uMediaAspect.value = slot.aspect;
@@ -311,6 +320,26 @@ export function initCrtViewer({ canvas, movies = [], onChange }: CrtViewerOption
 		material.uniforms.uHasNextTexture.value = 0;
 		material.uniforms.uTransitionProgress.value = 0;
 		hideFallback();
+	}
+
+	function resetVideo(slot: VideoSlot) {
+		if (Number.isFinite(slot.video.duration) && slot.video.currentTime > 0) {
+			try {
+				slot.video.currentTime = 0;
+			} catch {
+				// 読み込み直後にcurrentTimeを触れないブラウザでは、そのまま再生する
+			}
+		}
+	}
+
+	function handleVideoEnded(index: number) {
+		if (isDestroyed || !isPlaying || isTransitioning || index !== currentIndex) {
+			return;
+		}
+
+		onProgress?.(currentIndex, 1);
+		void prepareSlot(currentIndex + 1).ready.catch(() => undefined);
+		switchToIndex(currentIndex + 1, 1);
 	}
 
 	function prepareSlot(index: number) {
@@ -333,10 +362,11 @@ export function initCrtViewer({ canvas, movies = [], onChange }: CrtViewerOption
 		};
 
 		video.muted = true;
-		video.loop = true;
+		video.loop = false;
 		video.playsInline = true;
 		video.preload = 'auto';
 		video.crossOrigin = 'anonymous';
+		video.addEventListener('ended', () => handleVideoEnded(normalizedIndex));
 
 		slot.ready = new Promise<VideoSlot>((resolve, reject) => {
 			const source = getPlayableSource(video, sources);
@@ -396,11 +426,37 @@ export function initCrtViewer({ canvas, movies = [], onChange }: CrtViewerOption
 		frameId = 0;
 	}
 
+	function queueNearEndPreload(video: HTMLVideoElement) {
+		if (hasQueuedNearEndPreload || movieQueue.length < 2 || !Number.isFinite(video.duration)) {
+			return;
+		}
+
+		const remainingTime = video.duration - video.currentTime;
+		if (remainingTime <= 2) {
+			hasQueuedNearEndPreload = true;
+			void prepareSlot(currentIndex + 1).ready.catch(() => undefined);
+		}
+	}
+
+	function notifyProgress() {
+		const currentSlot = slots.get(currentIndex);
+		const video = currentSlot?.video;
+
+		if (!video || !Number.isFinite(video.duration) || video.duration <= 0) {
+			onProgress?.(currentIndex, 0);
+			return;
+		}
+
+		queueNearEndPreload(video);
+		onProgress?.(currentIndex, video.currentTime / video.duration);
+	}
+
 	function renderFrame(time: number) {
 		material.uniforms.uTime.value = time * 0.001;
 		screen.rotation.x = Math.sin(time * 0.00035) * 0.012;
 		screen.rotation.y = Math.cos(time * 0.00028) * 0.018;
 		renderer.render(scene, camera);
+		notifyProgress();
 	}
 
 	function render(time: number) {
@@ -464,7 +520,7 @@ export function initCrtViewer({ canvas, movies = [], onChange }: CrtViewerOption
 			return;
 		}
 
-		updateFallbackPoster(currentIndex);
+		updateFallbackMovieImage(currentIndex);
 
 		if (prefersReducedMotion) {
 			showFallback(true);
@@ -475,12 +531,16 @@ export function initCrtViewer({ canvas, movies = [], onChange }: CrtViewerOption
 			resize();
 			renderFrame(performance.now());
 			const slot = await prepareSlot(currentIndex).ready;
+			if (slot.video.ended) {
+				resetVideo(slot);
+			}
 			if (isPlaying) {
 				await playSlot(slot);
 				await waitForVideoFrame(slot.video);
 			}
 			setCurrentTexture(slot);
 			onChange?.(currentIndex);
+			onProgress?.(currentIndex, 0);
 			if (isPlaying) {
 				startRenderLoop();
 			}
@@ -498,6 +558,7 @@ export function initCrtViewer({ canvas, movies = [], onChange }: CrtViewerOption
 		isTransitioning = true;
 
 		try {
+			resetVideo(targetSlot);
 			await playSlot(targetSlot);
 			await waitForVideoFrame(targetSlot.video);
 		} catch {
@@ -527,8 +588,9 @@ export function initCrtViewer({ canvas, movies = [], onChange }: CrtViewerOption
 
 			currentIndex = targetIndex;
 			setCurrentTexture(targetSlot);
-			updateFallbackPoster(currentIndex);
+			updateFallbackMovieImage(currentIndex);
 			onChange?.(currentIndex);
+			onProgress?.(currentIndex, 0);
 			isTransitioning = false;
 			transitionFrameId = 0;
 			pauseInactiveSlots();
@@ -565,7 +627,7 @@ export function initCrtViewer({ canvas, movies = [], onChange }: CrtViewerOption
 			})
 			.catch(() => {
 				isSwitchPending = false;
-				updateFallbackPoster(currentIndex);
+				updateFallbackMovieImage(currentIndex);
 				onChange?.(currentIndex);
 			});
 
