@@ -28,9 +28,6 @@ type MovieVideo = {
 type CrtViewerOptions = {
 	canvas: HTMLCanvasElement;
 	movies?: MovieVideo[];
-	videoSrc?: string;
-	videoSources?: VideoSource[];
-	videoZoom?: number;
 	onChange?: (index: number) => void;
 };
 
@@ -64,28 +61,28 @@ function createCrtScreenGeometry(width: number, height: number, columns: number,
 		const v = row / rows;
 		const ny = v * 2 - 1;
 
-			for (let column = 0; column <= columns; column += 1) {
-				const u = column / columns;
-				const nx = u * 2 - 1;
-				const absX = Math.abs(nx);
-				const absY = Math.abs(ny);
-				const edgeBlendX = Math.pow(absX, 2.1);
-				const edgeBlendY = Math.pow(absY, 2.1);
-				const cornerBlend = Math.pow(absX * absY, 3.2);
-				const horizontalArc = 1 - nx * nx;
-				const verticalArc = 1 - ny * ny;
-				let x = nx * halfWidth;
-				let y = ny * halfHeight;
+		for (let column = 0; column <= columns; column += 1) {
+			const u = column / columns;
+			const nx = u * 2 - 1;
+			const absX = Math.abs(nx);
+			const absY = Math.abs(ny);
+			const edgeBlendX = Math.pow(absX, 2.1);
+			const edgeBlendY = Math.pow(absY, 2.1);
+			const cornerBlend = Math.pow(absX * absY, 3.2);
+			const horizontalArc = 1 - nx * nx;
+			const verticalArc = 1 - ny * ny;
+			let x = nx * halfWidth;
+			let y = ny * halfHeight;
 
-				x *= 1 - edgeBlendY * 0.032;
-				y *= 1 - edgeBlendX * 0.026;
-				x += nx * verticalArc * 0.035;
-				y += ny * horizontalArc * 0.04;
-				x -= Math.sign(nx) * cornerBlend * 0.13;
-				y -= Math.sign(ny) * cornerBlend * 0.09;
+			x *= 1 - edgeBlendY * 0.032;
+			y *= 1 - edgeBlendX * 0.026;
+			x += nx * verticalArc * 0.035;
+			y += ny * horizontalArc * 0.04;
+			x -= Math.sign(nx) * cornerBlend * 0.13;
+			y -= Math.sign(ny) * cornerBlend * 0.09;
 
-				const radius = nx * nx + ny * ny;
-				const z = -(radius * 0.09 + cornerBlend * 0.055);
+			const radius = nx * nx + ny * ny;
+			const z = -(radius * 0.09 + cornerBlend * 0.055);
 
 			positions.push(x, y, z);
 			uvs.push(u, v);
@@ -215,12 +212,10 @@ void main() {
 }
 `;
 
-export function initCrtViewer({ canvas, movies = [], videoSrc, videoSources = [], videoZoom = 1, onChange }: CrtViewerOptions): CrtViewerController {
+export function initCrtViewer({ canvas, movies = [], onChange }: CrtViewerOptions): CrtViewerController {
 	const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 	const fallbackImage = canvas.parentElement?.querySelector<HTMLElement>('[data-crt-fallback]');
-	const movieQueue = movies.length
-		? movies
-		: [{ sources: videoSources.length ? videoSources : videoSrc ? [{ src: videoSrc, type: 'video/mp4' }] : [], zoom: videoZoom }];
+	const movieQueue = movies;
 	const scene = new Scene();
 	const camera = new PerspectiveCamera(35, 16 / 11, 0.1, 100);
 	const emptyTexture = new Texture();
@@ -248,8 +243,8 @@ export function initCrtViewer({ canvas, movies = [], videoSrc, videoSources = []
 			uHasNextTexture: { value: 0 },
 			uMediaAspect: { value: 16 / 9 },
 			uNextMediaAspect: { value: 16 / 9 },
-			uTextureZoom: { value: videoZoom },
-			uNextTextureZoom: { value: videoZoom },
+			uTextureZoom: { value: 1 },
+			uNextTextureZoom: { value: 1 },
 			uTransitionProgress: { value: 0 },
 			uTransitionDirection: { value: 1 },
 			uFallbackColor: { value: new Color('#241b10') },
@@ -294,13 +289,22 @@ export function initCrtViewer({ canvas, movies = [], videoSrc, videoSources = []
 		}
 	}
 
+	function updateFallbackPoster(index: number) {
+		if (!fallbackImage) {
+			return;
+		}
+
+		const poster = movieQueue[normalizeIndex(index)]?.poster;
+		if (poster) {
+			fallbackImage.style.backgroundImage = `url("${encodeURI(poster)}")`;
+		}
+	}
+
 	function setCurrentTexture(slot: VideoSlot) {
 		if (!slot.texture) {
 			return;
 		}
 
-		slot.texture.minFilter = LinearFilter;
-		slot.texture.magFilter = LinearFilter;
 		material.uniforms.uTexture.value = slot.texture;
 		material.uniforms.uHasTexture.value = 1;
 		material.uniforms.uMediaAspect.value = slot.aspect;
@@ -438,6 +442,7 @@ export function initCrtViewer({ canvas, movies = [], videoSrc, videoSources = []
 			renderFrame(performance.now());
 			const slot = await prepareSlot(currentIndex).ready;
 			setCurrentTexture(slot);
+			updateFallbackPoster(currentIndex);
 			onChange?.(currentIndex);
 			if (isPlaying) {
 				playSlot(slot);
@@ -478,6 +483,7 @@ export function initCrtViewer({ canvas, movies = [], videoSrc, videoSources = []
 
 			currentIndex = targetIndex;
 			setCurrentTexture(targetSlot);
+			updateFallbackPoster(currentIndex);
 			onChange?.(currentIndex);
 			isTransitioning = false;
 			transitionFrameId = 0;
@@ -516,6 +522,7 @@ export function initCrtViewer({ canvas, movies = [], videoSrc, videoSources = []
 			})
 			.catch(() => {
 				isSwitchPending = false;
+				updateFallbackPoster(currentIndex);
 				onChange?.(currentIndex);
 			});
 

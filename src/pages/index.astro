@@ -26,7 +26,6 @@ import Layout from '../layouts/Layout.astro';
 		if (root && canvas && root.dataset.crtReady !== 'true') {
 			root.dataset.crtReady = 'true';
 			const movies = JSON.parse(canvas.dataset.movies || '[]');
-			const fallback = root.querySelector<HTMLElement>('[data-crt-fallback]');
 			const viewer = initCrtViewer({
 				canvas,
 				movies,
@@ -34,22 +33,12 @@ import Layout from '../layouts/Layout.astro';
 			});
 
 			function updateNav(activeIndex: number) {
-				const activeMovie = movies[activeIndex];
-
 				navDots.forEach((dot, index) => {
 					const isActive = index === activeIndex;
 
 					dot.dataset.active = isActive ? 'true' : 'false';
 					dot.setAttribute('aria-current', isActive ? 'true' : 'false');
 				});
-
-				if (!activeMovie) {
-					return;
-				}
-
-				if (fallback && activeMovie.poster) {
-					fallback.style.backgroundImage = `url("${encodeURI(activeMovie.poster)}")`;
-				}
 			}
 
 			const wheelThreshold = 36;
@@ -169,7 +158,6 @@ import Layout from '../layouts/Layout.astro';
 				isInputLocked = false;
 			}
 
-			updateNav(0);
 			viewer.play();
 			navDots.forEach((dot) => dot.addEventListener('click', onNavClick));
 			root.addEventListener('wheel', onWheel, { passive: false });

@@ -1,11 +1,5 @@
 ---
 import '../styles/global.css';
-
-type Props = {
-	title?: string;
-};
-
-const { title = 'Movie Teaser Screens' } = Astro.props;
 ---
 
 <!doctype html>
@@ -16,7 +10,7 @@ const { title = 'Movie Teaser Screens' } = Astro.props;
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<link rel="icon" href="/favicon.ico" />
 		<meta name="generator" content={Astro.generator} />
-		<title>{title}</title>
+		<title>映画館によるプロモーションサイト</title>
 	</head>
 	<body class="antialiased">
 		<slot />
