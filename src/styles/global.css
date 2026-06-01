@@ -7,7 +7,8 @@
 
 @layer utilities {
 	.crt-fallback-glow {
-		background: radial-gradient(circle at center, #2d2114 0%, #090705 70%);
+		background-color: #090705;
+		background-image: radial-gradient(circle at center, #2d2114 0%, #090705 70%);
 	}
 
 	.crt-screen-shade {

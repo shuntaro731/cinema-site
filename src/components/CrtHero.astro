@@ -6,26 +6,25 @@ type Props = {
 };
 
 const { movies } = Astro.props;
-const screenId = 'crt-screen-main';
+const initialPoster = movies[0]?.poster ? `background-image: url("${movies[0].poster}")` : undefined;
 const serializedMovies = JSON.stringify(
-	movies.map((movie, index) => ({
-		id: movie.id,
-		label: `Movie ${index + 1}`,
+	movies.map((movie) => ({
 		poster: movie.poster,
 		sources: movie.teaserSources ?? [],
-		zoom: movie.teaserZoom ?? 1,
+		zoom: movie.teaserZoom,
 	})),
 );
 ---
 
-<section class="relative flex min-h-screen items-center justify-center overflow-hidden bg-black px-6 py-10" data-crt-section>
+<section class="relative flex min-h-screen items-center justify-center overflow-hidden bg-black px-6 py-10">
 	<div
-		id={screenId}
+		id="crt-screen-main"
 		class="relative aspect-[16/11] w-[min(88vw,134vh)] overflow-hidden rounded-[9%] bg-black shadow-[0_0_0_0.25rem_rgb(0_0_0),0_0_2.5rem_rgb(0_0_0/90%)]"
 		aria-label="ブラウン管ビュー"
 	>
 		<div
 			class="crt-fallback-glow absolute inset-0 bg-cover bg-center opacity-70 transition duration-500"
+			style={initialPoster}
 			data-crt-fallback
 		></div>
 		<canvas
@@ -42,13 +41,12 @@ const serializedMovies = JSON.stringify(
 			movies.map((movie, index) => (
 				<button
 					type="button"
-					class="h-2 w-2 rounded-full bg-crt-cream/35 transition-all duration-200 hover:bg-crt-cream focus:outline-none focus-visible:ring-2 focus-visible:ring-crt-cream data-[active=true]:h-5 data-[active=true]:bg-crt-cream data-[active=true]:shadow-[0_0_0.75rem_rgb(247_237_197/48%)]"
+					class="h-2 w-2 rounded-full bg-stone-500/35 transition-all duration-200 hover:bg-stone-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-300 data-[active=true]:h-5 data-[active=true]:bg-stone-300 data-[active=true]:shadow-[0_0_0.75rem_rgb(214_211_209/28%)]"
 					aria-label={`Movie ${index + 1} に切り替え`}
 					aria-current={index === 0 ? 'true' : 'false'}
 					data-crt-nav-dot
 					data-index={index}
 					data-active={index === 0 ? 'true' : 'false'}
-					data-movie-id={movie.id}
 				></button>
 			))
 		}

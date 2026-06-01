@@ -43,14 +43,28 @@ import Layout from '../layouts/Layout.astro';
 
 			const wheelThreshold = 36;
 			const inputLockMs = 460;
-			const wheelMomentumGuardMs = 220;
+			const wheelQuietMs = 320;
 
 			let wheelDelta = 0;
 			let isInputLocked = false;
+			let isWheelGestureLocked = false;
 			let touchStartY = 0;
 			let wheelResetTimer = 0;
 			let inputUnlockTimer = 0;
-			let wheelMomentumUntil = 0;
+			let wheelGestureUnlockTimer = 0;
+
+			function scheduleWheelGestureUnlock() {
+				window.clearTimeout(wheelGestureUnlockTimer);
+				wheelGestureUnlockTimer = window.setTimeout(() => {
+					isWheelGestureLocked = false;
+					wheelDelta = 0;
+				}, wheelQuietMs);
+			}
+
+			function lockWheelGestureUntilQuiet() {
+				isWheelGestureLocked = true;
+				scheduleWheelGestureUnlock();
+			}
 
 			function unlockInput() {
 				window.clearTimeout(inputUnlockTimer);
@@ -60,7 +74,7 @@ import Layout from '../layouts/Layout.astro';
 				}, inputLockMs);
 			}
 
-			function requestMovieMove(direction: number) {
+			function requestMovieMove(direction: number, lockWheelGesture = false) {
 				if (isInputLocked) {
 					return;
 				}
@@ -68,7 +82,9 @@ import Layout from '../layouts/Layout.astro';
 				isInputLocked = true;
 				wheelDelta = 0;
 				if (viewer.switchBy(direction)) {
-					wheelMomentumUntil = performance.now() + inputLockMs + wheelMomentumGuardMs;
+					if (lockWheelGesture) {
+						lockWheelGestureUntilQuiet();
+					}
 					unlockInput();
 					return;
 				}
@@ -79,8 +95,9 @@ import Layout from '../layouts/Layout.astro';
 			function onWheel(event: WheelEvent) {
 				event.preventDefault();
 
-				if (isInputLocked || performance.now() < wheelMomentumUntil) {
+				if (isInputLocked || isWheelGestureLocked) {
 					wheelDelta = 0;
+					lockWheelGestureUntilQuiet();
 					return;
 				}
 
@@ -94,7 +111,7 @@ import Layout from '../layouts/Layout.astro';
 					return;
 				}
 
-				requestMovieMove(wheelDelta > 0 ? 1 : -1);
+				requestMovieMove(wheelDelta > 0 ? 1 : -1, true);
 			}
 
 			function onTouchStart(event: TouchEvent) {
@@ -150,7 +167,7 @@ import Layout from '../layouts/Layout.astro';
 				isInputLocked = true;
 				wheelDelta = 0;
 				if (viewer.switchTo(targetIndex)) {
-					wheelMomentumUntil = performance.now() + wheelMomentumGuardMs;
+					lockWheelGestureUntilQuiet();
 					unlockInput();
 					return;
 				}
@@ -169,6 +186,7 @@ import Layout from '../layouts/Layout.astro';
 			document.addEventListener('astro:before-swap', () => {
 				window.clearTimeout(wheelResetTimer);
 				window.clearTimeout(inputUnlockTimer);
+				window.clearTimeout(wheelGestureUnlockTimer);
 				root.removeEventListener('wheel', onWheel);
 				root.removeEventListener('touchstart', onTouchStart);
 				root.removeEventListener('touchmove', onTouchMove);

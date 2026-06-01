@@ -8,7 +8,7 @@ import mandalorianPoster from '../assets/poster/mandalorian.jpg?url';
 import marioPoster from '../assets/poster/mario.jpg?url';
 import pradaPoster from '../assets/poster/prada.jpg?url';
 
-export type FeaturedMovieVideoSource = {
+type FeaturedMovieVideoSource = {
 	src: string;
 	type: string;
 };

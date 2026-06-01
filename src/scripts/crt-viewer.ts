@@ -19,7 +19,6 @@ type VideoSource = {
 };
 
 type MovieVideo = {
-	id?: number;
 	poster?: string;
 	sources?: VideoSource[];
 	zoom?: number;
@@ -94,8 +93,8 @@ function createCrtScreenGeometry(width: number, height: number, columns: number,
 			const current = row * (columns + 1) + column;
 			const next = current + columns + 1;
 
-			indices.push(current, next, current + 1);
-			indices.push(current + 1, next, next + 1);
+			indices.push(current, current + 1, next);
+			indices.push(current + 1, next + 1, next);
 		}
 	}
 
@@ -418,8 +417,37 @@ export function initCrtViewer({ canvas, movies = [], onChange }: CrtViewerOption
 		void prepareSlot(currentIndex - 1).ready.catch(() => undefined);
 	}
 
-	function playSlot(slot: VideoSlot) {
-		void slot.video.play().catch(() => showFallback(true));
+	async function playSlot(slot: VideoSlot) {
+		try {
+			await slot.video.play();
+		} catch (error) {
+			showFallback(true);
+			throw error;
+		}
+	}
+
+	function waitForVideoFrame(video: HTMLVideoElement) {
+		return new Promise<void>((resolve) => {
+			let isResolved = false;
+			const fallbackTimer = window.setTimeout(resolveOnce, 300);
+
+			function resolveOnce() {
+				if (isResolved) {
+					return;
+				}
+
+				isResolved = true;
+				window.clearTimeout(fallbackTimer);
+				resolve();
+			}
+
+			if ('requestVideoFrameCallback' in video) {
+				video.requestVideoFrameCallback(resolveOnce);
+				return;
+			}
+
+			window.setTimeout(resolveOnce, 80);
+		});
 	}
 
 	function pauseInactiveSlots() {
@@ -431,21 +459,29 @@ export function initCrtViewer({ canvas, movies = [], onChange }: CrtViewerOption
 	}
 
 	async function loadInitialVideo() {
-		if (!movieQueue.length || prefersReducedMotion || isDestroyed) {
+		if (!movieQueue.length || isDestroyed) {
+			showFallback(true);
+			return;
+		}
+
+		updateFallbackPoster(currentIndex);
+
+		if (prefersReducedMotion) {
 			showFallback(true);
 			return;
 		}
 
 		try {
 			resize();
-			hideFallback();
 			renderFrame(performance.now());
 			const slot = await prepareSlot(currentIndex).ready;
+			if (isPlaying) {
+				await playSlot(slot);
+				await waitForVideoFrame(slot.video);
+			}
 			setCurrentTexture(slot);
-			updateFallbackPoster(currentIndex);
 			onChange?.(currentIndex);
 			if (isPlaying) {
-				playSlot(slot);
 				startRenderLoop();
 			}
 			preloadAdjacent();
@@ -455,17 +491,25 @@ export function initCrtViewer({ canvas, movies = [], onChange }: CrtViewerOption
 		}
 	}
 
-	function animateTransition(targetIndex: number, targetSlot: VideoSlot, direction: number) {
+	async function animateTransition(targetIndex: number, targetSlot: VideoSlot, direction: number) {
 		const duration = 380;
 		const startTime = performance.now();
 
 		isTransitioning = true;
+
+		try {
+			await playSlot(targetSlot);
+			await waitForVideoFrame(targetSlot.video);
+		} catch {
+			isTransitioning = false;
+			return;
+		}
+
 		material.uniforms.uNextTexture.value = targetSlot.texture ?? emptyTexture;
 		material.uniforms.uHasNextTexture.value = targetSlot.texture ? 1 : 0;
 		material.uniforms.uNextMediaAspect.value = targetSlot.aspect;
 		material.uniforms.uNextTextureZoom.value = targetSlot.zoom;
 		material.uniforms.uTransitionDirection.value = direction > 0 ? 1 : -1;
-		playSlot(targetSlot);
 		startRenderLoop();
 
 		function step(time: number) {
@@ -516,9 +560,8 @@ export function initCrtViewer({ canvas, movies = [], onChange }: CrtViewerOption
 					return;
 				}
 
-				hideFallback();
 				isSwitchPending = false;
-				animateTransition(targetIndex, readySlot, direction);
+				void animateTransition(targetIndex, readySlot, direction);
 			})
 			.catch(() => {
 				isSwitchPending = false;
@@ -550,7 +593,7 @@ export function initCrtViewer({ canvas, movies = [], onChange }: CrtViewerOption
 
 			const slot = slots.get(currentIndex);
 			if (slot?.texture) {
-				playSlot(slot);
+				void playSlot(slot);
 				startRenderLoop();
 			}
 		},
