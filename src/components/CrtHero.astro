@@ -11,20 +11,21 @@ const serializedMovies = JSON.stringify(
 	movies.map((movie, index) => ({
 		id: movie.id,
 		label: `Movie ${index + 1}`,
+		poster: movie.poster,
 		sources: movie.teaserSources ?? [],
 		zoom: movie.teaserZoom ?? 1,
 	})),
 );
-const hasVideo = movies.some((movie) => movie.teaserSources?.length);
 ---
 
-<section class="relative flex min-h-screen items-center justify-center overflow-hidden bg-black" data-crt-section>
-	<div id={screenId} class="relative aspect-[16/10] w-[min(94vw,150vh)] overflow-hidden rounded-[7%] bg-black" aria-label="ブラウン管ビュー">
+<section class="relative flex min-h-screen items-center justify-center overflow-hidden bg-black px-6 py-10" data-crt-section>
+	<div
+		id={screenId}
+		class="relative aspect-[16/11] w-[min(88vw,134vh)] overflow-hidden rounded-[9%] bg-black shadow-[0_0_0_0.25rem_rgb(0_0_0),0_0_2.5rem_rgb(0_0_0/90%)]"
+		aria-label="ブラウン管ビュー"
+	>
 		<div
-			class:list={[
-				'crt-fallback-glow absolute inset-0 transition duration-500',
-				hasVideo ? 'opacity-0' : 'opacity-60',
-			]}
+			class="crt-fallback-glow absolute inset-0 bg-cover bg-center opacity-70 transition duration-500"
 			data-crt-fallback
 		></div>
 		<canvas
@@ -32,8 +33,9 @@ const hasVideo = movies.some((movie) => movie.teaserSources?.length);
 			data-crt-canvas
 			data-movies={serializedMovies}
 		></canvas>
+		<div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_40%,rgb(0_0_0/42%)_100%)]"></div>
+		<div class="crt-screen-shade pointer-events-none absolute inset-0"></div>
 		<div class="crt-scanlines pointer-events-none absolute inset-0 mix-blend-soft-light"></div>
-		<div class="crt-grille pointer-events-none absolute inset-0 mix-blend-screen opacity-35"></div>
 	</div>
 	<nav class="absolute right-5 top-1/2 z-40 flex -translate-y-1/2 flex-col items-center gap-4" aria-label="動画ナビゲーション">
 		{

@@ -25,27 +25,33 @@ import Layout from '../layouts/Layout.astro';
 
 		if (root && canvas && root.dataset.crtReady !== 'true') {
 			root.dataset.crtReady = 'true';
+			const movies = JSON.parse(canvas.dataset.movies || '[]');
+			const fallback = root.querySelector<HTMLElement>('[data-crt-fallback]');
+			const viewer = initCrtViewer({
+				canvas,
+				movies,
+				onChange: updateNav,
+			});
 
 			function updateNav(activeIndex: number) {
+				const activeMovie = movies[activeIndex];
+
 				navDots.forEach((dot, index) => {
 					const isActive = index === activeIndex;
 
 					dot.dataset.active = isActive ? 'true' : 'false';
 					dot.setAttribute('aria-current', isActive ? 'true' : 'false');
 				});
+
+				if (!activeMovie) {
+					return;
+				}
+
+				if (fallback && activeMovie.poster) {
+					fallback.style.backgroundImage = `url("${encodeURI(activeMovie.poster)}")`;
+				}
 			}
 
-			function normalizeNavIndex(index: number) {
-				const total = navDots.length;
-
-				return total ? ((index % total) + total) % total : 0;
-			}
-
-			const viewer = initCrtViewer({
-				canvas,
-				movies: JSON.parse(canvas.dataset.movies || '[]'),
-				onChange: updateNav,
-			});
 			const wheelThreshold = 36;
 			const inputLockMs = 460;
 			const wheelMomentumGuardMs = 220;
@@ -73,7 +79,6 @@ import Layout from '../layouts/Layout.astro';
 				isInputLocked = true;
 				wheelDelta = 0;
 				if (viewer.switchBy(direction)) {
-					updateNav(normalizeNavIndex(viewer.getIndex() + (direction > 0 ? 1 : -1)));
 					wheelMomentumUntil = performance.now() + inputLockMs + wheelMomentumGuardMs;
 					unlockInput();
 					return;
@@ -156,7 +161,6 @@ import Layout from '../layouts/Layout.astro';
 				isInputLocked = true;
 				wheelDelta = 0;
 				if (viewer.switchTo(targetIndex)) {
-					updateNav(targetIndex);
 					wheelMomentumUntil = performance.now() + wheelMomentumGuardMs;
 					unlockInput();
 					return;

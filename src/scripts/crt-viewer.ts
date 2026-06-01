@@ -1,9 +1,10 @@
 import {
+	BufferGeometry,
 	Color,
+	Float32BufferAttribute,
 	LinearFilter,
 	Mesh,
 	PerspectiveCamera,
-	PlaneGeometry,
 	Scene,
 	ShaderMaterial,
 	Texture,
@@ -19,6 +20,7 @@ type VideoSource = {
 
 type MovieVideo = {
 	id?: number;
+	poster?: string;
 	sources?: VideoSource[];
 	zoom?: number;
 };
@@ -49,6 +51,64 @@ export type CrtViewerController = {
 	getIndex: () => number;
 	destroy: () => void;
 };
+
+function createCrtScreenGeometry(width: number, height: number, columns: number, rows: number) {
+	const geometry = new BufferGeometry();
+	const positions: number[] = [];
+	const uvs: number[] = [];
+	const indices: number[] = [];
+	const halfWidth = width / 2;
+	const halfHeight = height / 2;
+
+	for (let row = 0; row <= rows; row += 1) {
+		const v = row / rows;
+		const ny = v * 2 - 1;
+
+			for (let column = 0; column <= columns; column += 1) {
+				const u = column / columns;
+				const nx = u * 2 - 1;
+				const absX = Math.abs(nx);
+				const absY = Math.abs(ny);
+				const edgeBlendX = Math.pow(absX, 2.1);
+				const edgeBlendY = Math.pow(absY, 2.1);
+				const cornerBlend = Math.pow(absX * absY, 3.2);
+				const horizontalArc = 1 - nx * nx;
+				const verticalArc = 1 - ny * ny;
+				let x = nx * halfWidth;
+				let y = ny * halfHeight;
+
+				x *= 1 - edgeBlendY * 0.032;
+				y *= 1 - edgeBlendX * 0.026;
+				x += nx * verticalArc * 0.035;
+				y += ny * horizontalArc * 0.04;
+				x -= Math.sign(nx) * cornerBlend * 0.13;
+				y -= Math.sign(ny) * cornerBlend * 0.09;
+
+				const radius = nx * nx + ny * ny;
+				const z = -(radius * 0.09 + cornerBlend * 0.055);
+
+			positions.push(x, y, z);
+			uvs.push(u, v);
+		}
+	}
+
+	for (let row = 0; row < rows; row += 1) {
+		for (let column = 0; column < columns; column += 1) {
+			const current = row * (columns + 1) + column;
+			const next = current + columns + 1;
+
+			indices.push(current, next, current + 1);
+			indices.push(current + 1, next, next + 1);
+		}
+	}
+
+	geometry.setIndex(indices);
+	geometry.setAttribute('position', new Float32BufferAttribute(positions, 3));
+	geometry.setAttribute('uv', new Float32BufferAttribute(uvs, 2));
+	geometry.computeVertexNormals();
+
+	return geometry;
+}
 
 const vertexShader = `
 varying vec2 vUv;
@@ -108,7 +168,7 @@ void main() {
 	vec2 centered = uv * 2.0 - 1.0;
 	float radius = dot(centered, centered);
 
-	vec2 warped = centered * (1.0 + radius * 0.11);
+	vec2 warped = centered * (1.0 + radius * 0.02);
 	vec2 sampleUv = warped * 0.5 + 0.5;
 
 	float progress = smoothstep(0.0, 1.0, uTransitionProgress);
@@ -117,9 +177,7 @@ void main() {
 	float transitionLine = progress * 1.08 - 0.04 + (lineNoise - 0.5) * 0.035;
 	float mixAmount = (1.0 - smoothstep(transitionLine - 0.035, transitionLine + 0.085, wipe)) * uHasNextTexture;
 	float band = smoothstep(0.11, 0.0, abs(wipe - transitionLine)) * 0.45;
-	float sweepY = 1.0 - fract(uTime * 0.48);
-	float idleBand = smoothstep(0.07, 0.0, abs(sampleUv.y - sweepY)) * (1.0 - progress);
-	float sweepBand = max(band, idleBand);
+	float sweepBand = band;
 	float sweepShift = sin(sampleUv.y * 70.0 + uTime * 18.0) * 0.0015;
 	sweepShift += (lineNoise - 0.5) * 0.0015;
 	vec2 distortedUv = sampleUv + vec2(sweepShift * sweepBand, sin(sampleUv.x * 18.0 + uTime * 10.0) * sweepBand * 0.001);
@@ -137,9 +195,12 @@ void main() {
 		color = mix(color, nextColor, mixAmount);
 	}
 
-	float scanline = sin((sampleUv.y * uResolution.y * 1.35) + uTime * 18.0) * 0.04;
-	float grille = sin(sampleUv.x * uResolution.x * 3.14159) * 0.025;
-	float noise = random(sampleUv * uResolution.xy + uTime * 48.0) * 0.06;
+	vec2 dotUv = sampleUv * uResolution.xy / 1.35;
+	vec2 dotCell = floor(dotUv + vec2(uTime * 26.0, -uTime * 14.0));
+	float dotShape = 1.0 - smoothstep(0.16, 0.38, length(fract(dotUv) - 0.5));
+	float dotSpark = (random(dotCell + floor(uTime * 28.0)) - 0.5) * dotShape * 0.09;
+	float dotRun = step(0.86, random(dotCell + vec2(19.0, 43.0))) * dotShape * 0.04;
+	float noise = dotSpark + dotRun;
 	float sweepStatic = random(sampleUv * vec2(180.0, 42.0) + floor(uTime * 16.0));
 	float sweepNoise = sweepBand * (sweepStatic - 0.5) * 0.05;
 	float transitionDip = progress * (1.0 - progress) * 0.28;
@@ -149,7 +210,6 @@ void main() {
 	color += glow;
 	color += noise + sweepNoise;
 	color -= transitionDip;
-	color -= scanline + grille;
 
 	gl_FragColor = vec4(color, 1.0);
 }
@@ -162,7 +222,7 @@ export function initCrtViewer({ canvas, movies = [], videoSrc, videoSources = []
 		? movies
 		: [{ sources: videoSources.length ? videoSources : videoSrc ? [{ src: videoSrc, type: 'video/mp4' }] : [], zoom: videoZoom }];
 	const scene = new Scene();
-	const camera = new PerspectiveCamera(35, 16 / 9, 0.1, 100);
+	const camera = new PerspectiveCamera(35, 16 / 11, 0.1, 100);
 	const emptyTexture = new Texture();
 	const renderer = new WebGLRenderer({
 		canvas,
@@ -171,25 +231,10 @@ export function initCrtViewer({ canvas, movies = [], videoSrc, videoSources = []
 		powerPreference: 'high-performance',
 	});
 
-	camera.position.z = 4.2;
+	camera.position.z = 4.98;
 	renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
 
-	const planeWidth = 4.75;
-	const planeHeight = 3.04;
-	const geometry = new PlaneGeometry(planeWidth, planeHeight, 88, 52);
-	const positions = geometry.attributes.position;
-
-	for (let index = 0; index < positions.count; index += 1) {
-		const x = positions.getX(index);
-		const y = positions.getY(index);
-		const nx = x / (planeWidth / 2);
-		const ny = y / (planeHeight / 2);
-		const edge = nx * nx + ny * ny;
-		positions.setZ(index, -edge * 0.16);
-	}
-
-	positions.needsUpdate = true;
-	geometry.computeVertexNormals();
+	const geometry = createCrtScreenGeometry(4.55, 3.13, 96, 70);
 
 	const material = new ShaderMaterial({
 		vertexShader,
@@ -471,6 +516,7 @@ export function initCrtViewer({ canvas, movies = [], videoSrc, videoSources = []
 			})
 			.catch(() => {
 				isSwitchPending = false;
+				onChange?.(currentIndex);
 			});
 
 		return true;
