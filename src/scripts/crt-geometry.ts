@@ -3,6 +3,7 @@ import { BufferGeometry, Float32BufferAttribute } from 'three';
 export function createCrtScreenGeometry(width: number, height: number, columns: number, rows: number) {
 	const geometry = new BufferGeometry();
 	const positions: number[] = [];
+	const flatPositions: number[] = [];
 	const uvs: number[] = [];
 	const indices: number[] = [];
 	const halfWidth = width / 2;
@@ -36,6 +37,7 @@ export function createCrtScreenGeometry(width: number, height: number, columns: 
 			const z = -(radius * 0.09 + cornerBlend * 0.055);
 
 			positions.push(x, y, z);
+			flatPositions.push(nx * halfWidth, ny * halfHeight, 0);
 			uvs.push(u, v);
 		}
 	}
@@ -52,6 +54,7 @@ export function createCrtScreenGeometry(width: number, height: number, columns: 
 
 	geometry.setIndex(indices);
 	geometry.setAttribute('position', new Float32BufferAttribute(positions, 3));
+	geometry.setAttribute('flatPosition', new Float32BufferAttribute(flatPositions, 3));
 	geometry.setAttribute('uv', new Float32BufferAttribute(uvs, 2));
 	geometry.computeVertexNormals();
 

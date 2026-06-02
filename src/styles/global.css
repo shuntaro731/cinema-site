@@ -6,6 +6,7 @@
 	--color-crt-cream: #f7edc5;
 }
 
+/* crtの描くエフェクト */
 @layer utilities {
 	.crt-fallback-glow {
 		background-color: #090705;
@@ -13,13 +14,13 @@
 	}
 
 	.crt-screen-shade {
-		box-shadow: inset 0 0 3rem rgb(0 0 0 / 84%), inset 0 0 7rem rgb(0 0 0 / 55%);
+		box-shadow: inset 0 0 3rem rgb(0 0 0 / 68%), inset 0 0 7rem rgb(0 0 0 / 38%);
 	}
 
 	.crt-scanlines {
 		background-image:
-			radial-gradient(circle, rgb(255 255 255 / 9%) 0.018rem, transparent 0.035rem),
-			radial-gradient(circle, rgb(0 0 0 / 16%) 0.024rem, transparent 0.045rem);
+			radial-gradient(circle, rgb(255 255 255 / 7%) 0.018rem, transparent 0.035rem),
+			radial-gradient(circle, rgb(0 0 0 / 6%) 0.024rem, transparent 0.045rem);
 		background-position:
 			0 0,
 			0.08rem 0.12rem;
@@ -31,6 +32,7 @@
 
 }
 
+/* crtのノイズアニメーション */
 @keyframes crt-dot-noise {
 	0% {
 		background-position:

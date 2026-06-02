@@ -20,6 +20,7 @@ type VideoSource = {
 };
 
 export type MovieVideo = {
+	id: number;
 	movieImage?: string;
 	sources?: VideoSource[];
 	zoom?: number;
@@ -47,6 +48,7 @@ export type CrtViewerController = {
 	switchBy: (direction: number) => boolean;
 	switchTo: (index: number) => boolean;
 	getIndex: () => number;
+	flatten: (duration?: number) => Promise<void>;
 	destroy: () => void;
 };
 
@@ -85,6 +87,7 @@ export function initCrtViewer({ canvas, movies = [], onChange, onProgress }: Crt
 			uNextTextureZoom: { value: 1 },
 			uTransitionProgress: { value: 0 },
 			uTransitionDirection: { value: 1 },
+			uFlattenProgress: { value: 0 },
 			uFallbackColor: { value: new Color('#241b10') },
 		},
 	});
@@ -94,10 +97,13 @@ export function initCrtViewer({ canvas, movies = [], onChange, onProgress }: Crt
 
 	let frameId = 0;
 	let transitionFrameId = 0;
+	let flattenFrameId = 0;
+	let flattenResolve: (() => void) | null = null;
 	let currentIndex = 0;
 	let isPlaying = false;
 	let isDestroyed = false;
 	let isTransitioning = false;
+	let isFlattening = false;
 	let isSwitchPending = false;
 	let hasQueuedNearEndPreload = false;
 	const slots = new Map<number, VideoSlot>();
@@ -284,16 +290,86 @@ export function initCrtViewer({ canvas, movies = [], onChange, onProgress }: Crt
 	}
 
 	function renderFrame(time: number) {
+		const flattenProgress = Math.min(Math.max(material.uniforms.uFlattenProgress.value as number, 0), 1);
+		const rotationAmount = 1 - flattenProgress;
+
 		material.uniforms.uTime.value = time * 0.001;
-		screen.rotation.x = Math.sin(time * 0.00035) * 0.012;
-		screen.rotation.y = Math.cos(time * 0.00028) * 0.018;
+		screen.rotation.x = Math.sin(time * 0.00035) * 0.012 * rotationAmount;
+		screen.rotation.y = Math.cos(time * 0.00028) * 0.018 * rotationAmount;
 		renderer.render(scene, camera);
 		notifyProgress();
 	}
 
 	function render(time: number) {
 		renderFrame(time);
-		frameId = isPlaying || isTransitioning ? window.requestAnimationFrame(render) : 0;
+		frameId = isPlaying || isTransitioning || isFlattening ? window.requestAnimationFrame(render) : 0;
+	}
+
+	function resolveFlatten() {
+		if (!flattenResolve) {
+			return;
+		}
+
+		flattenResolve();
+		flattenResolve = null;
+	}
+
+	function cancelFlatten(resolve = true) {
+		if (flattenFrameId) {
+			window.cancelAnimationFrame(flattenFrameId);
+			flattenFrameId = 0;
+		}
+		isFlattening = false;
+		if (resolve) {
+			resolveFlatten();
+		}
+	}
+
+	function flatten(duration = 400) {
+		if (isDestroyed) {
+			return Promise.resolve();
+		}
+
+		cancelFlatten();
+
+		const currentProgress = Math.min(Math.max(material.uniforms.uFlattenProgress.value as number, 0), 1);
+		const animationDuration = prefersReducedMotion ? Math.min(duration, 80) : duration;
+
+		if (currentProgress >= 1 || animationDuration <= 0) {
+			material.uniforms.uFlattenProgress.value = 1;
+			renderFrame(performance.now());
+			return Promise.resolve();
+		}
+
+		isFlattening = true;
+		startRenderLoop();
+
+		return new Promise<void>((resolve) => {
+			const startTime = performance.now();
+
+			flattenResolve = resolve;
+
+			function step(time: number) {
+				if (isDestroyed) {
+					cancelFlatten();
+					return;
+				}
+
+				const progress = Math.min((time - startTime) / animationDuration, 1);
+				material.uniforms.uFlattenProgress.value = currentProgress + (1 - currentProgress) * progress;
+
+				if (progress < 1) {
+					flattenFrameId = window.requestAnimationFrame(step);
+					return;
+				}
+
+				flattenFrameId = 0;
+				isFlattening = false;
+				resolveFlatten();
+			}
+
+			flattenFrameId = window.requestAnimationFrame(step);
+		});
 	}
 
 	function preloadAdjacent() {
@@ -511,6 +587,7 @@ export function initCrtViewer({ canvas, movies = [], onChange, onProgress }: Crt
 		getIndex() {
 			return currentIndex;
 		},
+		flatten,
 		destroy() {
 			if (isDestroyed) {
 				return;
@@ -518,6 +595,7 @@ export function initCrtViewer({ canvas, movies = [], onChange, onProgress }: Crt
 
 			isDestroyed = true;
 			isPlaying = false;
+			cancelFlatten();
 			stopRenderLoop();
 			window.cancelAnimationFrame(transitionFrameId);
 			window.removeEventListener('resize', resize);
