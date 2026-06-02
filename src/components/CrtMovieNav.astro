@@ -8,7 +8,7 @@ type Props = {
 const { movies } = Astro.props;
 ---
 
-<nav class="absolute bottom-11 left-1/2 z-30 flex w-fit -translate-x-1/2 items-center justify-center gap-2.5" aria-label="動画ナビゲーション">
+<nav class="absolute bottom-10 left-1/2 z-30 flex w-fit -translate-x-1/2 items-center justify-center gap-2.5" aria-label="動画ナビゲーション">
 	{
 		movies.map((_, index) => (
 			<button

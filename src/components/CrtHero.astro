@@ -1,5 +1,6 @@
 ---
 import tohoLogo from '../assets/toho-logo.svg?url';
+import CrtCursor from './CrtCursor.astro';
 import CrtMovieNav from './CrtMovieNav.astro';
 import type { FeaturedMovie } from '../data/movies';
 
@@ -46,6 +47,7 @@ const serializedMovies = JSON.stringify(
 		<!-- 動画切り替えnav -->
 		<CrtMovieNav movies={movies} />
 	</div>
+	<CrtCursor />
 	<div
 		class="pointer-events-none absolute inset-0 z-[60] hidden px-6 py-10 text-white"
 		aria-hidden="true"
