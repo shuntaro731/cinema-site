@@ -41,14 +41,20 @@ type VideoSlot = {
 	ready: Promise<VideoSlot>;
 };
 
+type SwitchOptions = {
+	direction?: number;
+};
+
 export type CrtViewerController = {
 	preload: () => void;
 	play: () => void;
 	pause: () => void;
-	switchBy: (direction: number) => boolean;
-	switchTo: (index: number) => boolean;
+	switchBy: (direction: number, options?: SwitchOptions) => boolean;
+	switchTo: (index: number, options?: SwitchOptions) => boolean;
 	getIndex: () => number;
 	flatten: (duration?: number) => Promise<void>;
+	unflatten: (duration?: number) => Promise<void>;
+	isBusy: () => boolean;
 	destroy: () => void;
 };
 
@@ -177,7 +183,7 @@ export function initCrtViewer({ canvas, movies = [], onChange, onProgress }: Crt
 
 		onProgress?.(currentIndex, 1);
 		void prepareSlot(currentIndex + 1).ready.catch(() => undefined);
-		switchToIndex(currentIndex + 1, 1);
+		switchToIndex(currentIndex + 1, { direction: 1 });
 	}
 
 	function prepareSlot(index: number) {
@@ -325,7 +331,7 @@ export function initCrtViewer({ canvas, movies = [], onChange, onProgress }: Crt
 		}
 	}
 
-	function flatten(duration = 400) {
+	function animateFlatten(targetProgress: number, duration = 400) {
 		if (isDestroyed) {
 			return Promise.resolve();
 		}
@@ -333,10 +339,11 @@ export function initCrtViewer({ canvas, movies = [], onChange, onProgress }: Crt
 		cancelFlatten();
 
 		const currentProgress = Math.min(Math.max(material.uniforms.uFlattenProgress.value as number, 0), 1);
-		const animationDuration = prefersReducedMotion ? Math.min(duration, 80) : duration;
+		const nextProgress = Math.min(Math.max(targetProgress, 0), 1);
+		const animationDuration = duration;
 
-		if (currentProgress >= 1 || animationDuration <= 0) {
-			material.uniforms.uFlattenProgress.value = 1;
+		if (Math.abs(currentProgress - nextProgress) < 0.001 || animationDuration <= 0) {
+			material.uniforms.uFlattenProgress.value = nextProgress;
 			renderFrame(performance.now());
 			return Promise.resolve();
 		}
@@ -356,7 +363,7 @@ export function initCrtViewer({ canvas, movies = [], onChange, onProgress }: Crt
 				}
 
 				const progress = Math.min((time - startTime) / animationDuration, 1);
-				material.uniforms.uFlattenProgress.value = currentProgress + (1 - currentProgress) * progress;
+				material.uniforms.uFlattenProgress.value = currentProgress + (nextProgress - currentProgress) * progress;
 
 				if (progress < 1) {
 					flattenFrameId = window.requestAnimationFrame(step);
@@ -365,11 +372,25 @@ export function initCrtViewer({ canvas, movies = [], onChange, onProgress }: Crt
 
 				flattenFrameId = 0;
 				isFlattening = false;
+				material.uniforms.uFlattenProgress.value = nextProgress;
+				renderFrame(performance.now());
 				resolveFlatten();
 			}
 
 			flattenFrameId = window.requestAnimationFrame(step);
 		});
+	}
+
+	function flatten(duration = 400) {
+		return animateFlatten(1, duration);
+	}
+
+	function unflatten(duration = 400) {
+		return animateFlatten(0, duration);
+	}
+
+	function isBusy() {
+		return isTransitioning || isSwitchPending || isFlattening;
 	}
 
 	function preloadAdjacent() {
@@ -412,6 +433,43 @@ export function initCrtViewer({ canvas, movies = [], onChange, onProgress }: Crt
 
 			window.setTimeout(resolveOnce, 80);
 		});
+	}
+
+	function waitForSeek(video: HTMLVideoElement) {
+		return new Promise<void>((resolve) => {
+			let isResolved = false;
+			const fallbackTimer = window.setTimeout(resolveOnce, 220);
+
+			function resolveOnce() {
+				if (isResolved) {
+					return;
+				}
+
+				isResolved = true;
+				window.clearTimeout(fallbackTimer);
+				video.removeEventListener('seeked', resolveOnce);
+				resolve();
+			}
+
+			video.addEventListener('seeked', resolveOnce, { once: true });
+		});
+	}
+
+	async function seekVideoToStart(video: HTMLVideoElement) {
+		if (!Number.isFinite(video.duration) || video.duration <= 0) {
+			return;
+		}
+
+		if (video.currentTime < 0.02) {
+			return;
+		}
+
+		try {
+			video.currentTime = 0;
+			await waitForSeek(video);
+		} catch {
+			// seekできないタイミングでは、現在のフレームをそのまま使う
+		}
 	}
 
 	function pauseInactiveSlots() {
@@ -461,12 +519,12 @@ export function initCrtViewer({ canvas, movies = [], onChange, onProgress }: Crt
 
 	async function animateTransition(targetIndex: number, targetSlot: VideoSlot, direction: number) {
 		const duration = 380;
-		const startTime = performance.now();
+		let startTime = 0;
 
 		isTransitioning = true;
 
 		try {
-			resetVideo(targetSlot);
+			await seekVideoToStart(targetSlot.video);
 			await playSlot(targetSlot);
 			await waitForVideoFrame(targetSlot.video);
 		} catch {
@@ -479,6 +537,7 @@ export function initCrtViewer({ canvas, movies = [], onChange, onProgress }: Crt
 		material.uniforms.uNextMediaAspect.value = targetSlot.aspect;
 		material.uniforms.uNextTextureZoom.value = targetSlot.zoom;
 		material.uniforms.uTransitionDirection.value = direction > 0 ? 1 : -1;
+		startTime = performance.now();
 		startRenderLoop();
 
 		function step(time: number) {
@@ -508,7 +567,7 @@ export function initCrtViewer({ canvas, movies = [], onChange, onProgress }: Crt
 		transitionFrameId = window.requestAnimationFrame(step);
 	}
 
-	function switchToIndex(index: number, directionOverride?: number) {
+	function switchToIndex(index: number, options: SwitchOptions = {}) {
 		if (isDestroyed || isTransitioning || isSwitchPending || movieQueue.length < 2 || prefersReducedMotion) {
 			return false;
 		}
@@ -519,7 +578,7 @@ export function initCrtViewer({ canvas, movies = [], onChange, onProgress }: Crt
 			return false;
 		}
 
-		const direction = directionOverride ?? (targetIndex > currentIndex ? 1 : -1);
+		const direction = options.direction ?? (targetIndex > currentIndex ? 1 : -1);
 		const targetSlot = prepareSlot(targetIndex);
 
 		isSwitchPending = true;
@@ -576,18 +635,20 @@ export function initCrtViewer({ canvas, movies = [], onChange, onProgress }: Crt
 			stopRenderLoop();
 			slots.forEach((slot) => slot.video.pause());
 		},
-		switchBy(direction: number) {
+		switchBy(direction: number, options: SwitchOptions = {}) {
 			const normalizedDirection = direction > 0 ? 1 : -1;
 
-			return switchToIndex(currentIndex + normalizedDirection, normalizedDirection);
+			return switchToIndex(currentIndex + normalizedDirection, { ...options, direction: normalizedDirection });
 		},
-		switchTo(index: number) {
-			return switchToIndex(index);
+		switchTo(index: number, options: SwitchOptions = {}) {
+			return switchToIndex(index, options);
 		},
 		getIndex() {
 			return currentIndex;
 		},
 		flatten,
+		unflatten,
+		isBusy,
 		destroy() {
 			if (isDestroyed) {
 				return;

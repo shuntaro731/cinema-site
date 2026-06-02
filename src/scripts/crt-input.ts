@@ -4,10 +4,9 @@ type CrtInputOptions = {
 	getIndex: () => number;
 	switchBy: (direction: number) => boolean;
 	switchTo: (index: number) => boolean;
-	onMovieMove: () => void;
 };
 
-export function initCrtInput({ root, navDots, getIndex, switchBy, switchTo, onMovieMove }: CrtInputOptions) {
+export function initCrtInput({ root, navDots, getIndex, switchBy, switchTo }: CrtInputOptions) {
 	const wheelThreshold = 36;
 	const inputLockMs = 460;
 	const wheelQuietMs = 320;
@@ -15,6 +14,7 @@ export function initCrtInput({ root, navDots, getIndex, switchBy, switchTo, onMo
 	let wheelDelta = 0;
 	let isInputLocked = false;
 	let isWheelGestureLocked = false;
+	let isDisabled = false;
 	let touchStartY = 0;
 	let wheelResetTimer = 0;
 	let inputUnlockTimer = 0;
@@ -42,14 +42,13 @@ export function initCrtInput({ root, navDots, getIndex, switchBy, switchTo, onMo
 	}
 
 	function requestMovieMove(direction: number, lockWheelGesture = false) {
-		if (isInputLocked) {
+		if (isDisabled || isInputLocked) {
 			return;
 		}
 
 		isInputLocked = true;
 		wheelDelta = 0;
 		if (switchBy(direction)) {
-			onMovieMove();
 			if (lockWheelGesture) {
 				lockWheelGestureUntilQuiet();
 			}
@@ -62,6 +61,11 @@ export function initCrtInput({ root, navDots, getIndex, switchBy, switchTo, onMo
 
 	function onWheel(event: WheelEvent) {
 		event.preventDefault();
+
+		if (isDisabled) {
+			wheelDelta = 0;
+			return;
+		}
 
 		if (isInputLocked || isWheelGestureLocked) {
 			wheelDelta = 0;
@@ -83,16 +87,26 @@ export function initCrtInput({ root, navDots, getIndex, switchBy, switchTo, onMo
 	}
 
 	function onTouchStart(event: TouchEvent) {
+		if (isDisabled) {
+			touchStartY = 0;
+			return;
+		}
+
 		touchStartY = event.touches[0]?.clientY ?? 0;
 	}
 
 	function onTouchMove(event: TouchEvent) {
-		if (touchStartY) {
+		if (touchStartY || isDisabled) {
 			event.preventDefault();
 		}
 	}
 
 	function onTouchEnd(event: TouchEvent) {
+		if (isDisabled) {
+			touchStartY = 0;
+			return;
+		}
+
 		const touchEndY = event.changedTouches[0]?.clientY ?? touchStartY;
 		const distance = touchStartY - touchEndY;
 
@@ -109,6 +123,10 @@ export function initCrtInput({ root, navDots, getIndex, switchBy, switchTo, onMo
 		const nextKeys = ['ArrowDown', 'PageDown', ' '];
 		const previousKeys = ['ArrowUp', 'PageUp'];
 
+		if (isDisabled) {
+			return;
+		}
+
 		if (nextKeys.includes(event.key)) {
 			event.preventDefault();
 			requestMovieMove(1);
@@ -124,6 +142,10 @@ export function initCrtInput({ root, navDots, getIndex, switchBy, switchTo, onMo
 		const button = event.currentTarget as HTMLButtonElement;
 		const targetIndex = Number(button.dataset.index);
 
+		if (isDisabled) {
+			return;
+		}
+
 		if (!Number.isFinite(targetIndex)) {
 			return;
 		}
@@ -135,7 +157,6 @@ export function initCrtInput({ root, navDots, getIndex, switchBy, switchTo, onMo
 		isInputLocked = true;
 		wheelDelta = 0;
 		if (switchTo(targetIndex)) {
-			onMovieMove();
 			lockWheelGestureUntilQuiet();
 			unlockInput();
 			return;
@@ -152,6 +173,18 @@ export function initCrtInput({ root, navDots, getIndex, switchBy, switchTo, onMo
 	window.addEventListener('keydown', onKeyDown);
 
 	return {
+		setDisabled(disabled: boolean) {
+			isDisabled = disabled;
+			if (disabled) {
+				wheelDelta = 0;
+				touchStartY = 0;
+				isInputLocked = false;
+				isWheelGestureLocked = false;
+				window.clearTimeout(wheelResetTimer);
+				window.clearTimeout(inputUnlockTimer);
+				window.clearTimeout(wheelGestureUnlockTimer);
+			}
+		},
 		dispose() {
 			window.clearTimeout(wheelResetTimer);
 			window.clearTimeout(inputUnlockTimer);

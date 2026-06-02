@@ -4,6 +4,7 @@
 	--color-white: #EFEDDE;
 	--color-crt-black: #050403;
 	--color-crt-cream: #f7edc5;
+	--font-sans: "Outfit", "Noto Sans JP", sans-serif;
 }
 
 /* crtの描くエフェクト */
