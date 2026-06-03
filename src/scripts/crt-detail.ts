@@ -1,3 +1,5 @@
+import { SELECTORS } from './crt-selectors';
+
 type CrtDetailControllerOptions = {
 	root: HTMLElement;
 	originalTitle: string;
@@ -18,10 +20,10 @@ function setElementInert(element: HTMLElement, isInert: boolean) {
 }
 
 export function initCrtDetailController({ root, originalTitle }: CrtDetailControllerOptions) {
-	const header = root.querySelector<HTMLElement>('[data-crt-header]');
-	const detailRoot = root.querySelector<HTMLElement>('[data-crt-detail]');
-	const backButton = detailRoot?.querySelector<HTMLButtonElement>('[data-crt-detail-back]') ?? null;
-	const panels = Array.from(detailRoot?.querySelectorAll<HTMLElement>('[data-crt-detail-panel]') ?? []);
+	const header = root.querySelector<HTMLElement>(SELECTORS.crtHeader);
+	const detailRoot = root.querySelector<HTMLElement>(SELECTORS.crtDetail);
+	const backButton = detailRoot?.querySelector<HTMLButtonElement>(SELECTORS.crtDetailBack) ?? null;
+	const panels = Array.from(detailRoot?.querySelectorAll<HTMLElement>(SELECTORS.crtDetailPanel) ?? []);
 	let isOpen = false;
 	let activeMovieId: number | null = null;
 
@@ -74,8 +76,9 @@ export function initCrtDetailController({ root, originalTitle }: CrtDetailContro
 			return false;
 		}
 
+		root.dataset.detailOpen = 'true';
+		window.scrollTo({ top: 0 });
 		detailRoot.classList.remove('hidden');
-		detailRoot.scrollTop = 0;
 		detailRoot.setAttribute('aria-hidden', 'false');
 		setElementInert(detailRoot, false);
 		setHeaderHidden(true);
@@ -99,6 +102,8 @@ export function initCrtDetailController({ root, originalTitle }: CrtDetailContro
 			return;
 		}
 
+		window.scrollTo({ top: 0 });
+		delete root.dataset.detailOpen;
 		detailRoot.classList.add('hidden');
 		detailRoot.setAttribute('aria-hidden', 'true');
 		setElementInert(detailRoot, true);

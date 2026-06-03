@@ -4,11 +4,7 @@ import pradaMp4 from '../assets/video/prada2.mp4?url';
 import mandalorianMovieImage from '../assets/movie-image/mandalorian.jpg?url';
 import marioMovieImage from '../assets/movie-image/mario.jpg?url';
 import pradaMovieImage from '../assets/movie-image/prada.jpg?url';
-
-type FeaturedMovieVideoSource = {
-	src: string;
-	type: string;
-};
+import type { VideoSource } from '../types/video';
 
 type ScreeningSchedule = {
 	day: string;
@@ -36,7 +32,7 @@ export type FeaturedMovie = {
 	storyline: string[];
 	screeningFormats: string[];
 	schedule: ScreeningSchedule[];
-	teaserSources?: FeaturedMovieVideoSource[];
+	teaserSources?: VideoSource[];
 	teaserZoom?: number;
 };
 

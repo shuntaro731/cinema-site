@@ -1,14 +1,16 @@
 import { initCrtDetailController } from './crt-detail';
 import { initCrtInput } from './crt-input';
+import { SELECTORS } from './crt-selectors';
 import { initCrtTransitionController } from './crt-transition';
-import { initCrtViewer, type MovieVideo } from './crt-viewer';
+import { initCrtViewer } from './crt-viewer';
+import type { MovieVideo } from '../types/video';
 
 export function initCrtViewerPage() {
-	const root = document.querySelector<HTMLElement>('[data-crt-root]');
-	const canvas = root?.querySelector<HTMLCanvasElement>('[data-crt-canvas]');
-	const screen = root?.querySelector<HTMLElement>('[data-crt-screen]');
-	const navDots = Array.from(root?.querySelectorAll<HTMLButtonElement>('[data-crt-nav-dot]') ?? []);
-	const navProgressBars = navDots.map((dot) => dot.querySelector<HTMLElement>('[data-crt-nav-progress]'));
+	const root = document.querySelector<HTMLElement>(SELECTORS.crtRoot);
+	const canvas = root?.querySelector<HTMLCanvasElement>(SELECTORS.crtCanvas);
+	const screen = root?.querySelector<HTMLElement>(SELECTORS.crtScreen);
+	const navDots = Array.from(root?.querySelectorAll<HTMLButtonElement>(SELECTORS.crtNavDot) ?? []);
+	const navProgressBars = navDots.map((dot) => dot.querySelector<HTMLElement>(SELECTORS.crtNavProgress));
 
 	if (!root || !canvas || root.dataset.crtReady === 'true') {
 		return;

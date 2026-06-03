@@ -1,3 +1,5 @@
+import { SELECTORS } from './crt-selectors';
+
 type ScreenStyleSnapshot = {
 	zIndex: string;
 	borderRadius: string;
@@ -31,7 +33,7 @@ function captureOverlayStyles(overlays: HTMLElement[]) {
 }
 
 export function initCrtTransitionController(screen: HTMLElement | null) {
-	const overlays = Array.from(screen?.querySelectorAll<HTMLElement>('[data-crt-overlay]') ?? []);
+	const overlays = Array.from(screen?.querySelectorAll<HTMLElement>(SELECTORS.crtOverlay) ?? []);
 	let savedScreenStyle: ScreenStyleSnapshot | null = null;
 	let savedOverlayStyles: OverlayStyleSnapshot[] = [];
 	let styleRestoreTimer = 0;

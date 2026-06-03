@@ -9,7 +9,7 @@ const { movies } = Astro.props;
 ---
 
 <div
-	class="absolute inset-0 z-[60] hidden overflow-y-auto overscroll-contain text-white"
+	class="relative z-[60] hidden bg-black px-6 py-16 text-white"
 	aria-hidden="true"
 	data-crt-detail
 >
@@ -37,9 +37,7 @@ const { movies } = Astro.props;
 				inert
 				tabindex="-1"
 			>
-				<div class="min-h-screen" aria-hidden="true"></div>
-				<div class="bg-black px-6 py-16">
-					<div class="mx-auto w-full max-w-6xl pb-16">
+				<div class="mx-auto w-full max-w-6xl pb-16">
 					<div class="grid gap-8 md:grid-cols-4 md:items-end">
 						<img
 							class="hidden w-full rounded bg-white/10 object-cover shadow-2xl md:block"
@@ -155,7 +153,6 @@ const { movies } = Astro.props;
 						</div>
 						</div>
 					</div>
-				</div>
 			</article>
 		);
 	})}

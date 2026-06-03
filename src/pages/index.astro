@@ -1,15 +1,21 @@
 ---
 import Hero from '../components/section/Hero.astro';
+import Detail from '../components/section/Detail.astro';
 import { featuredMovies } from '../data/movies';
 import Layout from '../layouts/Layout.astro';
 ---
 
 <Layout title="CRT Movie Screen">
 	<main
-		class="h-screen overflow-hidden bg-black"
+		class="h-screen overflow-hidden bg-black data-[detail-open=true]:h-auto data-[detail-open=true]:overflow-visible"
 		data-crt-root
 	>
-		{featuredMovies.length ? <Hero movies={featuredMovies} /> : (
+		{featuredMovies.length ? (
+			<>
+				<Hero movies={featuredMovies} />
+				<Detail movies={featuredMovies} />
+			</>
+		) : (
 			<section class="flex min-h-screen items-center justify-center bg-crt-black px-6 text-center text-crt-cream">
 				<p>表示できる映画がありません。</p>
 			</section>

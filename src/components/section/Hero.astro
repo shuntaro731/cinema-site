@@ -1,8 +1,8 @@
 ---
 import Header from '../Header.astro';
 import MovieNav from '../MovieNav.astro';
-import Detail from './Detail.astro';
 import type { FeaturedMovie } from '../../data/movies';
+import { serializeCrtMovies } from '../../utils/crt-movies';
 
 type Props = {
 	movies: FeaturedMovie[];
@@ -10,14 +10,7 @@ type Props = {
 
 const { movies } = Astro.props;
 const initialMovieImage = movies[0]?.movieImage ? `background-image: url("${movies[0].movieImage}")` : undefined;
-const serializedMovies = JSON.stringify(
-	movies.map((movie) => ({
-		id: movie.id,
-		movieImage: movie.movieImage,
-		sources: movie.teaserSources ?? [],
-		zoom: movie.teaserZoom,
-	})),
-);
+const serializedMovies = serializeCrtMovies(movies);
 ---
 
 <section class="relative flex h-screen flex-col overflow-hidden bg-black px-6 pb-10 pt-40">
@@ -48,5 +41,4 @@ const serializedMovies = JSON.stringify(
 			<MovieNav movies={movies} />
 		</div>
 	</div>
-	<Detail movies={movies} />
 </section>
