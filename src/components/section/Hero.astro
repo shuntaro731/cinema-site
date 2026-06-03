@@ -1,8 +1,7 @@
 ---
-import tohoLogo from '../assets/toho-logo.svg?url';
-import CrtCursor from './CrtCursor.astro';
-import CrtMovieNav from './CrtMovieNav.astro';
-import type { FeaturedMovie } from '../data/movies';
+import Header from '../Header.astro';
+import MovieNav from '../MovieNav.astro';
+import type { FeaturedMovie } from '../../data/movies';
 
 type Props = {
 	movies: FeaturedMovie[];
@@ -21,8 +20,7 @@ const serializedMovies = JSON.stringify(
 ---
 
 <section class="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-black px-6 py-10">
-	<!-- ロゴ -->
-	<img class="absolute left-10 top-12 z-1 w-32" src={tohoLogo} alt="TOHO CINEMA" />
+	<Header />
 	<div class="relative flex w-full max-w-[123vh] flex-col items-center">
 		<div
 			id="crt-screen-main"
@@ -45,9 +43,8 @@ const serializedMovies = JSON.stringify(
 			<div class="crt-scanlines pointer-events-none absolute inset-0 mix-blend-soft-light transition-opacity duration-300" data-crt-overlay></div>
 		</div>
 		<!-- 動画切り替えnav -->
-		<CrtMovieNav movies={movies} />
+		<MovieNav movies={movies} />
 	</div>
-	<CrtCursor />
 	<div
 		class="pointer-events-none absolute inset-0 z-[60] hidden px-6 py-10 text-white"
 		aria-hidden="true"

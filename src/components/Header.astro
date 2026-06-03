@@ -1,0 +1,22 @@
+---
+import tohoLogo from '../assets/toho-logo.svg?url';
+
+const navItems = ['上映中', '近日公開', '劇場について'];
+---
+
+<header class="absolute left-10 right-10 top-12 z-40 flex items-center justify-between text-white">
+	<!-- ロゴ -->
+	<a class="block w-32" href="/" aria-label="TOHO CINEMA トップへ">
+		<img src={tohoLogo} alt="TOHO CINEMA" />
+	</a>
+	<nav class="flex items-center gap-10 text-lg font-bold tracking-wide" aria-label="グローバルナビゲーション">
+		{navItems.map((item) => (
+			<a class="transition hover:text-white/70" href="#">
+				{item}
+			</a>
+		))}
+		<a class="rounded-full border-2 border-white px-8 py-4 transition hover:bg-white hover:text-black" href="#">
+			チケットを購入
+		</a>
+	</nav>
+</header>

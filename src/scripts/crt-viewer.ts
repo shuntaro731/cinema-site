@@ -49,6 +49,7 @@ export type CrtViewerController = {
 	preload: () => void;
 	play: () => void;
 	pause: () => void;
+	setAutoAdvance: (autoAdvance: boolean) => void;
 	switchBy: (direction: number, options?: SwitchOptions) => boolean;
 	switchTo: (index: number, options?: SwitchOptions) => boolean;
 	getIndex: () => number;
@@ -111,6 +112,7 @@ export function initCrtViewer({ canvas, movies = [], onChange, onProgress }: Crt
 	let isTransitioning = false;
 	let isFlattening = false;
 	let isSwitchPending = false;
+	let shouldAutoAdvance = true;
 	let hasQueuedNearEndPreload = false;
 	const slots = new Map<number, VideoSlot>();
 
@@ -182,6 +184,17 @@ export function initCrtViewer({ canvas, movies = [], onChange, onProgress }: Crt
 		}
 
 		onProgress?.(currentIndex, 1);
+		if (!shouldAutoAdvance) {
+			const slot = slots.get(currentIndex);
+			if (slot) {
+				resetVideo(slot);
+				void playSlot(slot).then(() => {
+					onProgress?.(currentIndex, 0);
+				}).catch(() => undefined);
+			}
+			return;
+		}
+
 		void prepareSlot(currentIndex + 1).ready.catch(() => undefined);
 		switchToIndex(currentIndex + 1, { direction: 1 });
 	}
@@ -634,6 +647,9 @@ export function initCrtViewer({ canvas, movies = [], onChange, onProgress }: Crt
 			isPlaying = false;
 			stopRenderLoop();
 			slots.forEach((slot) => slot.video.pause());
+		},
+		setAutoAdvance(autoAdvance: boolean) {
+			shouldAutoAdvance = autoAdvance;
 		},
 		switchBy(direction: number, options: SwitchOptions = {}) {
 			const normalizedDirection = direction > 0 ? 1 : -1;

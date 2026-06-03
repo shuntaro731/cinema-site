@@ -31,25 +31,6 @@
 		animation: crt-dot-noise 0.32s steps(2, end) infinite;
 	}
 
-	/*  */
-	.crt-cursor-ring {
-		position: absolute;
-		left: 0;
-		top: 0;
-		will-change: transform;
-	}
-
-	.crt-cursor [data-crt-cursor-label] {
-		display: block;
-		opacity: 0;
-		will-change: opacity, transform;
-		transition: opacity 0.2s ease;
-	}
-
-	.crt-cursor[data-active="true"] [data-crt-cursor-label] {
-		opacity: 1;
-	}
-
 }
 
 /* crtのノイズアニメーション */

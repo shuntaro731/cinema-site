@@ -1,5 +1,4 @@
 import { initCrtInput } from './crt-input';
-import { initCrtCursor } from './crt-cursor';
 import { initCrtViewer, type MovieVideo } from './crt-viewer';
 
 type DetailState = {
@@ -88,12 +87,6 @@ export function initCrtViewerPage() {
 	let savedOverlayStyles: OverlayStyleSnapshot[] = [];
 	let detailFrameId = 0;
 	let styleRestoreTimer = 0;
-	const customCursor = initCrtCursor({
-		root,
-		hoverTarget: screen,
-		canActivate: () => !isDetailOpen && !isDetailTransitioning && !viewer.isBusy(),
-		canShow: () => !isDetailTransitioning,
-	});
 
 	if (window.location.pathname === '/') {
 		window.history.replaceState({ fromCrtHome: true } satisfies DetailState, '', window.location.href);
@@ -296,8 +289,7 @@ export function initCrtViewerPage() {
 		}
 
 		isDetailTransitioning = true;
-		customCursor.setActive(false);
-		customCursor.hide();
+		viewer.setAutoAdvance(false);
 		input.setDisabled(true);
 		saveCurrentStyles();
 		fadeOverlays(transitionDuration);
@@ -332,6 +324,7 @@ export function initCrtViewerPage() {
 		restoreOverlays();
 		restoreScreenStyle(transitionDuration);
 		await viewer.unflatten(transitionDuration);
+		viewer.setAutoAdvance(true);
 
 		detailFrameId = window.requestAnimationFrame(() => {
 			isDetailTransitioning = false;
@@ -387,7 +380,6 @@ export function initCrtViewerPage() {
 		screen?.removeEventListener('click', handleScreenClick);
 		detailBack?.removeEventListener('click', handleDetailBackClick);
 		window.removeEventListener('popstate', handlePopState);
-		customCursor.dispose();
 		input.dispose();
 		viewer.destroy();
 	}, { once: true });

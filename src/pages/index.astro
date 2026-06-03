@@ -1,5 +1,5 @@
 ---
-import CrtHero from '../components/CrtHero.astro';
+import Hero from '../components/section/Hero.astro';
 import { featuredMovies } from '../data/movies';
 import Layout from '../layouts/Layout.astro';
 ---
@@ -9,7 +9,7 @@ import Layout from '../layouts/Layout.astro';
 		class="h-screen overflow-hidden bg-black"
 		data-crt-root
 	>
-		{featuredMovies.length ? <CrtHero movies={featuredMovies} /> : (
+		{featuredMovies.length ? <Hero movies={featuredMovies} /> : (
 			<section class="flex min-h-screen items-center justify-center bg-crt-black px-6 text-center text-crt-cream">
 				<p>表示できる映画がありません。</p>
 			</section>
