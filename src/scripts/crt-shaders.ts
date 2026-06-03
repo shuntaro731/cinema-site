@@ -14,14 +14,26 @@ void main() {
 export const fragmentShader = `
 uniform sampler2D uTexture;
 uniform sampler2D uNextTexture;
+uniform sampler2D uLogoTexture;
+uniform sampler2D uNextLogoTexture;
 uniform vec2 uResolution;
 uniform float uTime;
 uniform float uHasTexture;
 uniform float uHasNextTexture;
+uniform float uHasLogoTexture;
+uniform float uHasNextLogoTexture;
 uniform float uMediaAspect;
 uniform float uNextMediaAspect;
 uniform float uTextureZoom;
 uniform float uNextTextureZoom;
+uniform vec2 uLogoCenter;
+uniform vec2 uNextLogoCenter;
+uniform vec2 uLogoSize;
+uniform vec2 uNextLogoSize;
+uniform float uLogoRotation;
+uniform float uNextLogoRotation;
+uniform float uLogoOpacity;
+uniform float uNextLogoOpacity;
 uniform float uTransitionProgress;
 uniform float uTransitionDirection;
 uniform float uFlattenProgress;
@@ -56,6 +68,29 @@ vec3 sampleCrt(sampler2D sourceTexture, vec2 uv, float mediaAspect, float textur
 	return vec3(red, green, blue);
 }
 
+vec4 sampleLogo(sampler2D logoTexture, vec2 uv, vec2 logoCenter, vec2 logoSize, float logoRotation) {
+	vec2 relative = uv - logoCenter;
+	float angleCos = cos(logoRotation);
+	float angleSin = sin(logoRotation);
+	vec2 rotated = vec2(
+		angleCos * relative.x + angleSin * relative.y,
+		-angleSin * relative.x + angleCos * relative.y
+	);
+	vec2 logoUv = rotated / max(logoSize, vec2(0.001)) + 0.5;
+	vec2 inside = step(vec2(0.0), logoUv) * step(logoUv, vec2(1.0));
+	vec4 logo = texture2D(logoTexture, logoUv);
+
+	logo.a *= inside.x * inside.y;
+	return logo;
+}
+
+vec3 blendLogo(vec3 baseColor, sampler2D logoTexture, vec2 uv, vec2 logoCenter, vec2 logoSize, float logoRotation, float logoOpacity) {
+	vec4 logo = sampleLogo(logoTexture, uv, logoCenter, logoSize, logoRotation);
+	float alpha = clamp(logo.a * logoOpacity, 0.0, 1.0);
+
+	return mix(baseColor, logo.rgb, alpha);
+}
+
 void main() {
 	vec2 uv = vUv;
 	vec2 centered = uv * 2.0 - 1.0;
@@ -85,12 +120,18 @@ void main() {
 
 	if (uHasTexture > 0.5) {
 		color = sampleCrt(uTexture, distortedUv, uMediaAspect, uTextureZoom, radius, band * 0.008, crtAmount);
+		if (uHasLogoTexture > 0.5) {
+			color = blendLogo(color, uLogoTexture, distortedUv, uLogoCenter, uLogoSize, uLogoRotation, uLogoOpacity);
+		}
 	}
 
 	if (uHasNextTexture > 0.5) {
 		vec2 nextUv = distortedUv;
 		nextUv.x += (1.0 - progress) * 0.018 * uTransitionDirection;
 		vec3 nextColor = sampleCrt(uNextTexture, nextUv, uNextMediaAspect, uNextTextureZoom, radius, band * 0.006, crtAmount);
+		if (uHasNextLogoTexture > 0.5) {
+			nextColor = blendLogo(nextColor, uNextLogoTexture, nextUv, uNextLogoCenter, uNextLogoSize, uNextLogoRotation, uNextLogoOpacity);
+		}
 		color = mix(color, nextColor, mixAmount);
 	}
 
