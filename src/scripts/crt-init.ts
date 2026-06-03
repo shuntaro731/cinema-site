@@ -44,6 +44,7 @@ export function initCrtViewerPage() {
 	});
 	const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 	const transitionDuration = prefersReducedMotion ? 120 : 600;
+	const detailTextureZoom = 1.18;
 	let isDetailTransitioning = false;
 	let pendingDetailMovieId: number | null = null;
 	let detailFrameId = 0;
@@ -109,6 +110,7 @@ export function initCrtViewerPage() {
 		transition.saveCurrentStyles();
 		transition.fadeOverlays(transitionDuration);
 		transition.expandScreen(transitionDuration);
+		void viewer.setTextureZoom(detailTextureZoom, transitionDuration);
 
 		await viewer.flatten(transitionDuration);
 		if (!isDetailTransitioning) {
@@ -135,6 +137,7 @@ export function initCrtViewerPage() {
 		detail.hide();
 		transition.restoreOverlays();
 		transition.restoreScreenStyle(transitionDuration);
+		void viewer.restoreTextureZoom(transitionDuration);
 		await viewer.unflatten(transitionDuration);
 		viewer.setAutoAdvance(true);
 

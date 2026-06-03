@@ -1,5 +1,6 @@
 ---
 import type { FeaturedMovie } from '../../data/movies';
+import ScheduleTable from '../ScheduleTable.astro';
 
 type Props = {
 	movies: FeaturedMovie[];
@@ -9,16 +10,20 @@ const { movies } = Astro.props;
 ---
 
 <div
-	class="relative z-[60] hidden bg-black px-6 py-16 text-white"
+	class="relative z-[60] hidden bg-black text-white"
 	aria-hidden="true"
 	data-crt-detail
 >
 	<button
-		class="fixed left-10 top-12 z-[70] text-sm text-white/75 transition hover:text-white"
+		class="fixed left-10 top-12 z-[70] inline-flex size-12 items-center justify-center rounded-full border border-white/20 bg-black/30 text-white backdrop-blur transition hover:bg-white/15"
 		type="button"
+		aria-label="戻る"
 		data-crt-detail-back
 	>
-		戻る
+		<svg class="size-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+			<path d="M19 12H5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+			<path d="M12 19L5 12L12 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+		</svg>
 	</button>
 	{movies.map((movie) => {
 		const detailRows = [
@@ -37,33 +42,8 @@ const { movies } = Astro.props;
 				inert
 				tabindex="-1"
 			>
-				<div class="mx-auto w-full max-w-6xl pb-16">
-					<div class="grid gap-8 md:grid-cols-4 md:items-end">
-						<img
-							class="hidden w-full rounded bg-white/10 object-cover shadow-2xl md:block"
-							src={movie.movieImage}
-							alt={`${movie.title}のポスター`}
-						/>
-						<div class="md:col-span-3">
-							<div class="mb-4 flex flex-wrap items-center gap-3 text-sm text-white/70">
-								<span>{movie.genre}</span>
-								<span>{movie.runtime}</span>
-								<span class="font-bold text-white">{movie.rating}</span>
-							</div>
-							<h1 class="max-w-4xl text-4xl font-bold leading-tight text-white md:text-6xl">{movie.title}</h1>
-							<p class="mt-5 max-w-3xl text-base leading-7 text-white/80">{movie.description}</p>
-							<a
-								class="mt-8 inline-flex rounded bg-red-500 px-5 py-3 text-sm font-bold text-white transition hover:bg-red-400"
-								href={movie.officialUrl}
-								target="_blank"
-								rel="noreferrer"
-							>
-								公式サイトを見る
-							</a>
-						</div>
-					</div>
-
-					<div class="mt-16 grid gap-12 lg:grid-cols-4">
+				<div class="mx-auto w-full max-w-6xl px-6 pt-16 pb-16">
+					<div class="grid gap-12 lg:grid-cols-4">
 						<aside class="space-y-8">
 							<img
 								class="w-full rounded bg-white/10 object-cover md:hidden"
@@ -72,10 +52,9 @@ const { movies } = Astro.props;
 							/>
 
 							<div>
-								<h2 class="mb-4 text-sm font-bold uppercase text-white">上映形式</h2>
 								<div class="space-y-3">
 									{movie.screeningFormats.map((format, index) => (
-										<div class={`flex items-center justify-between rounded px-5 py-3 text-sm font-bold ${index % 2 === 0 ? 'bg-red-500 text-white' : 'bg-white/10 text-white/85'}`}>
+										<div class={`flex items-center justify-between rounded px-5 py-3 text-sm font-bold ${index % 2 === 0 ? 'bg-brand text-black' : 'bg-white/10 text-white/85'}`}>
 											<span>{format}</span>
 											{index % 2 === 0 && <span aria-hidden="true">✓</span>}
 										</div>
@@ -85,54 +64,11 @@ const { movies } = Astro.props;
 						</aside>
 
 						<div class="space-y-16 lg:col-span-3">
-							<section aria-labelledby={`schedule-heading-${movie.id}`}>
-								<div class="mb-8 flex items-end justify-between gap-6">
-									<div>
-										<p class="mb-2 text-sm font-bold text-red-400">SCHEDULE</p>
-										<h2 id={`schedule-heading-${movie.id}`} class="text-3xl font-bold text-white">上映スケジュール</h2>
-									</div>
-									<p class="hidden text-sm text-white/60 sm:block">上映時間は劇場の都合により変更になる場合があります。</p>
-								</div>
-
-								<div class="mb-10 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-									{movie.schedule.map((day) => (
-										<div class="border-b-2 border-white/80 pb-4 text-center">
-											<p class="text-sm font-bold text-white/70">{day.day}曜日</p>
-											<p class="text-5xl font-bold leading-none text-white">{day.date}</p>
-											<p class="text-sm text-white/60">{day.month}</p>
-										</div>
-									))}
-								</div>
-
-								<div class="overflow-x-auto">
-									<table class="min-w-full border-collapse text-left text-sm">
-										<thead>
-											<tr class="border-b border-white/25 text-white">
-												<th class="py-4 pr-6 font-bold">日付</th>
-												<th class="py-4 pr-6 font-bold">上映形式</th>
-												<th class="py-4 pr-6 font-bold">上映時間</th>
-											</tr>
-										</thead>
-										<tbody>
-											{movie.schedule.flatMap((day) => (
-												day.showings.map((showing) => (
-													<tr class="border-b border-white/10 text-white/80">
-														<td class="py-4 pr-6 font-bold text-white">{day.month}{day.date}日（{day.day}）</td>
-														<td class="py-4 pr-6">{showing.format}</td>
-														<td class="py-4 pr-6">
-															<span class="inline-flex rounded bg-white px-4 py-2 font-bold text-black">{showing.time}</span>
-														</td>
-													</tr>
-												))
-											))}
-										</tbody>
-									</table>
-								</div>
-							</section>
+							<ScheduleTable id={movie.id} schedule={movie.schedule} />
 
 							<section class="grid gap-12 lg:grid-cols-2" aria-label="作品詳細">
 								<div>
-									<h2 class="mb-5 border-b-2 border-red-500 pb-4 text-lg font-bold text-white">作品情報</h2>
+									<h2 class="mb-5 border-b-2 border-brand pb-4 text-lg font-bold text-white">作品情報</h2>
 									<dl>
 										{detailRows.map((row) => (
 											<div class="flex items-center justify-between gap-6 border-b border-white/10 py-4">
@@ -144,7 +80,7 @@ const { movies } = Astro.props;
 								</div>
 
 								<div>
-									<h2 class="mb-5 border-b-2 border-red-500 pb-4 text-lg font-bold text-white">あらすじ</h2>
+									<h2 class="mb-5 border-b-2 border-brand pb-4 text-lg font-bold text-white">あらすじ</h2>
 									<div class="space-y-6 text-base leading-8 text-white/80">
 										{movie.storyline.map((paragraph) => <p>{paragraph}</p>)}
 									</div>

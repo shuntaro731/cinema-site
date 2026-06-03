@@ -32,6 +32,8 @@ export type CrtViewerController = {
 	play: () => void;
 	pause: () => void;
 	setAutoAdvance: (autoAdvance: boolean) => void;
+	setTextureZoom: (zoom: number, duration?: number) => Promise<void>;
+	restoreTextureZoom: (duration?: number) => Promise<void>;
 	switchBy: (direction: number, options?: SwitchOptions) => boolean;
 	switchTo: (index: number, options?: SwitchOptions) => boolean;
 	getIndex: () => number;
@@ -85,6 +87,7 @@ export function initCrtViewer({ canvas, movies = [], onChange, onProgress }: Crt
 
 	let frameId = 0;
 	let transitionAnimation: RafAnimation | null = null;
+	let zoomAnimation: RafAnimation | null = null;
 	let currentIndex = 0;
 	let isPlaying = false;
 	let isDestroyed = false;
@@ -144,6 +147,45 @@ export function initCrtViewer({ canvas, movies = [], onChange, onProgress }: Crt
 		material.uniforms.uHasNextTexture.value = 0;
 		material.uniforms.uTransitionProgress.value = 0;
 		hideFallback();
+	}
+
+	function getCurrentTextureZoom() {
+		const slot = slotManager.get(currentIndex);
+
+		return slot?.zoom ?? movies[currentIndex]?.zoom ?? 1.02;
+	}
+
+	function setTextureZoom(zoom: number, duration = 0) {
+		zoomAnimation?.cancel(false);
+		zoomAnimation = null;
+
+		const currentZoom = Number(material.uniforms.uTextureZoom.value) || getCurrentTextureZoom();
+		const nextZoom = Math.max(zoom, 0.01);
+
+		if (duration <= 0) {
+			material.uniforms.uTextureZoom.value = nextZoom;
+			startRenderLoop();
+			return Promise.resolve();
+		}
+
+		startRenderLoop();
+		zoomAnimation = animateWithRaf(duration, (progress) => {
+			if (isDestroyed) {
+				zoomAnimation = null;
+				return false;
+			}
+
+			material.uniforms.uTextureZoom.value = currentZoom + (nextZoom - currentZoom) * progress;
+			if (progress >= 1) {
+				zoomAnimation = null;
+			}
+		});
+
+		return zoomAnimation.promise;
+	}
+
+	function restoreTextureZoom(duration = 0) {
+		return setTextureZoom(getCurrentTextureZoom(), duration);
 	}
 
 	function handleVideoEnded(index: number) {
@@ -479,6 +521,8 @@ export function initCrtViewer({ canvas, movies = [], onChange, onProgress }: Crt
 		setAutoAdvance(autoAdvance: boolean) {
 			shouldAutoAdvance = autoAdvance;
 		},
+		setTextureZoom,
+		restoreTextureZoom,
 		switchBy(direction: number, options: SwitchOptions = {}) {
 			const normalizedDirection = direction > 0 ? 1 : -1;
 
@@ -504,6 +548,8 @@ export function initCrtViewer({ canvas, movies = [], onChange, onProgress }: Crt
 			stopRenderLoop();
 			transitionAnimation?.cancel(false);
 			transitionAnimation = null;
+			zoomAnimation?.cancel(false);
+			zoomAnimation = null;
 			window.removeEventListener('resize', resize);
 			showFallback(false);
 			slotManager.dispose();

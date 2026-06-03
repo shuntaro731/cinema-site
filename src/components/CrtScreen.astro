@@ -1,0 +1,34 @@
+---
+import type { FeaturedMovie } from '../data/movies';
+import { serializeCrtMovies } from '../utils/crt-movies';
+
+type Props = {
+	movies: FeaturedMovie[];
+};
+
+const { movies } = Astro.props;
+const initialMovieImage = movies[0]?.movieImage ? `background-image: url("${movies[0].movieImage}")` : undefined;
+const serializedMovies = serializeCrtMovies(movies);
+---
+
+
+<div
+	id="crt-screen-main"
+	class="relative aspect-[16/11] w-full cursor-pointer overflow-hidden rounded-[9%] bg-black shadow-[0_0_0_0.25rem_rgb(0_0_0),0_0_2.5rem_rgb(0_0_0/90%)] transition-[border-radius,box-shadow,transform] duration-500"
+	aria-label="ブラウン管ビュー"
+	data-crt-screen
+>
+	<div
+		class="crt-fallback-glow absolute inset-0 bg-cover bg-center opacity-70 transition duration-500"
+		style={initialMovieImage}
+		data-crt-fallback
+	></div>
+	<canvas
+		class="absolute inset-0 h-full w-full bg-transparent opacity-0 transition duration-500"
+		data-crt-canvas
+		data-movies={serializedMovies}
+	></canvas>
+	<div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_46%,rgb(0_0_0/30%)_100%)] transition-opacity duration-300" data-crt-overlay></div>
+	<div class="crt-screen-shade pointer-events-none absolute inset-0 transition-opacity duration-300" data-crt-overlay></div>
+	<div class="crt-scanlines pointer-events-none absolute inset-0 mix-blend-soft-light transition-opacity duration-300" data-crt-overlay></div>
+</div>

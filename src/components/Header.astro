@@ -9,13 +9,13 @@ const navItems = ['上映中', '近日公開', '劇場について'];
 	<a class="block w-34" href="/" aria-label="TOHO CINEMA トップへ">
 		<img src={tohoLogo} alt="TOHO CINEMA" />
 	</a>
-	<nav class="flex items-center gap-6 text-xs font-semibold tracking-wide" aria-label="グローバルナビゲーション">
+	<nav class="flex items-center gap-7 text-xs font-semibold tracking-wide" aria-label="グローバルナビゲーション">
 		{navItems.map((item) => (
 			<a class="transition hover:text-white/70" href="#">
 				{item}
 			</a>
 		))}
-		<a class="rounded-full border-1 border-color-white px-6 py-4 transition hover:bg-[#F8EDC4] hover:text-black" href="#">
+		<a class="rounded-full border border-color-white px-6 py-4 transition hover:bg-[#F8EDC4] hover:text-black" href="#">
 			チケットを購入
 		</a>
 	</nav>

@@ -2,12 +2,13 @@
 
 @theme {
 	--color-white: #EFEDDE;
+	--color-brand: #FFC900;
 	--color-crt-black: #050403;
 	--color-crt-cream: #f7edc5;
 	--font-sans: "Outfit", "Noto Sans JP", sans-serif;
 }
 
-/* crtの描くエフェクト */
+/* crtのエフェクト */
 @layer utilities {
 	.crt-fallback-glow {
 		background-color: #090705;
