@@ -30,7 +30,6 @@ export const featuredMovies: FeaturedMovie[] = [
 		teaserSources: [
 			{ src: marioMp4, type: 'video/mp4' },
 		],
-		teaserZoom: 1.02,
 	},
 	{
 		id: 2,
@@ -40,7 +39,6 @@ export const featuredMovies: FeaturedMovie[] = [
 		teaserSources: [
 			{ src: mandalorianMp4, type: 'video/mp4' },
 		],
-		teaserZoom: 1.02,
 	},
 	{
 		id: 3,
@@ -50,6 +48,5 @@ export const featuredMovies: FeaturedMovie[] = [
 		teaserSources: [
 			{ src: pradaMp4, type: 'video/mp4' },
 		],
-		teaserZoom: 1.02,
 	},
 ];

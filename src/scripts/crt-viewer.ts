@@ -62,7 +62,6 @@ export type CrtViewerController = {
 export function initCrtViewer({ canvas, movies = [], onChange, onProgress }: CrtViewerOptions): CrtViewerController {
 	const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 	const fallbackImage = canvas.parentElement?.querySelector<HTMLElement>('[data-crt-fallback]');
-	const movieQueue = movies;
 	const scene = new Scene();
 	const camera = new PerspectiveCamera(35, 16 / 11, 0.1, 100);
 	const emptyTexture = new Texture();
@@ -117,7 +116,7 @@ export function initCrtViewer({ canvas, movies = [], onChange, onProgress }: Crt
 	const slots = new Map<number, VideoSlot>();
 
 	function normalizeIndex(index: number) {
-		const total = movieQueue.length;
+		const total = movies.length;
 
 		return ((index % total) + total) % total;
 	}
@@ -147,7 +146,7 @@ export function initCrtViewer({ canvas, movies = [], onChange, onProgress }: Crt
 			return;
 		}
 
-		const movieImage = movieQueue[normalizeIndex(index)]?.movieImage;
+		const movieImage = movies[normalizeIndex(index)]?.movieImage;
 		if (movieImage) {
 			fallbackImage.style.backgroundImage = `url("${encodeURI(movieImage)}")`;
 		}
@@ -207,14 +206,14 @@ export function initCrtViewer({ canvas, movies = [], onChange, onProgress }: Crt
 			return existingSlot;
 		}
 
-		const movie = movieQueue[normalizedIndex];
+		const movie = movies[normalizedIndex];
 		const sources = movie?.sources ?? [];
 		const video = document.createElement('video');
 		const slot: VideoSlot = {
 			video,
 			texture: null,
 			aspect: 16 / 9,
-			zoom: movie?.zoom ?? 1,
+			zoom: movie?.zoom ?? 1.02,
 			ready: Promise.resolve(null as unknown as VideoSlot),
 		};
 
@@ -284,7 +283,7 @@ export function initCrtViewer({ canvas, movies = [], onChange, onProgress }: Crt
 	}
 
 	function queueNearEndPreload(video: HTMLVideoElement) {
-		if (hasQueuedNearEndPreload || movieQueue.length < 2 || !Number.isFinite(video.duration)) {
+		if (hasQueuedNearEndPreload || movies.length < 2 || !Number.isFinite(video.duration)) {
 			return;
 		}
 
@@ -407,7 +406,7 @@ export function initCrtViewer({ canvas, movies = [], onChange, onProgress }: Crt
 	}
 
 	function preloadAdjacent() {
-		if (movieQueue.length < 2 || prefersReducedMotion) {
+		if (movies.length < 2 || prefersReducedMotion) {
 			return;
 		}
 
@@ -448,10 +447,10 @@ export function initCrtViewer({ canvas, movies = [], onChange, onProgress }: Crt
 		});
 	}
 
-	function waitForSeek(video: HTMLVideoElement) {
+	function waitForEventWithTimeout(target: EventTarget, eventName: string, timeout: number) {
 		return new Promise<void>((resolve) => {
 			let isResolved = false;
-			const fallbackTimer = window.setTimeout(resolveOnce, 220);
+			const fallbackTimer = window.setTimeout(resolveOnce, timeout);
 
 			function resolveOnce() {
 				if (isResolved) {
@@ -460,11 +459,11 @@ export function initCrtViewer({ canvas, movies = [], onChange, onProgress }: Crt
 
 				isResolved = true;
 				window.clearTimeout(fallbackTimer);
-				video.removeEventListener('seeked', resolveOnce);
+				target.removeEventListener(eventName, resolveOnce);
 				resolve();
 			}
 
-			video.addEventListener('seeked', resolveOnce, { once: true });
+			target.addEventListener(eventName, resolveOnce, { once: true });
 		});
 	}
 
@@ -479,7 +478,7 @@ export function initCrtViewer({ canvas, movies = [], onChange, onProgress }: Crt
 
 		try {
 			video.currentTime = 0;
-			await waitForSeek(video);
+			await waitForEventWithTimeout(video, 'seeked', 220);
 		} catch {
 			// seekできないタイミングでは、現在のフレームをそのまま使う
 		}
@@ -494,7 +493,7 @@ export function initCrtViewer({ canvas, movies = [], onChange, onProgress }: Crt
 	}
 
 	async function loadInitialVideo() {
-		if (!movieQueue.length || isDestroyed) {
+		if (!movies.length || isDestroyed) {
 			showFallback(true);
 			return;
 		}
@@ -581,7 +580,7 @@ export function initCrtViewer({ canvas, movies = [], onChange, onProgress }: Crt
 	}
 
 	function switchToIndex(index: number, options: SwitchOptions = {}) {
-		if (isDestroyed || isTransitioning || isSwitchPending || movieQueue.length < 2 || prefersReducedMotion) {
+		if (isDestroyed || isTransitioning || isSwitchPending || movies.length < 2 || prefersReducedMotion) {
 			return false;
 		}
 
