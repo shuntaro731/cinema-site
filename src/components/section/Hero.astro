@@ -1,7 +1,7 @@
 ---
 import Header from '../Header.astro';
 import MovieNav from '../MovieNav.astro';
-import CrtDetailOverlay from './CrtDetailOverlay.astro';
+import Detail from './Detail.astro';
 import type { FeaturedMovie } from '../../data/movies';
 
 type Props = {
@@ -48,5 +48,5 @@ const serializedMovies = JSON.stringify(
 			<MovieNav movies={movies} />
 		</div>
 	</div>
-	<CrtDetailOverlay movies={movies} />
+	<Detail movies={movies} />
 </section>

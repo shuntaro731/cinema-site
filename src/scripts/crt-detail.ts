@@ -75,6 +75,7 @@ export function initCrtDetailController({ root, originalTitle }: CrtDetailContro
 		}
 
 		detailRoot.classList.remove('hidden');
+		detailRoot.scrollTop = 0;
 		detailRoot.setAttribute('aria-hidden', 'false');
 		setElementInert(detailRoot, false);
 		setHeaderHidden(true);

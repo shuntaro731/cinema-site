@@ -60,12 +60,12 @@ export function initCrtInput({ root, navDots, getIndex, switchBy, switchTo }: Cr
 	}
 
 	function onWheel(event: WheelEvent) {
-		event.preventDefault();
-
 		if (isDisabled) {
 			wheelDelta = 0;
 			return;
 		}
+
+		event.preventDefault();
 
 		if (isInputLocked || isWheelGestureLocked) {
 			wheelDelta = 0;
@@ -96,7 +96,11 @@ export function initCrtInput({ root, navDots, getIndex, switchBy, switchTo }: Cr
 	}
 
 	function onTouchMove(event: TouchEvent) {
-		if (touchStartY || isDisabled) {
+		if (isDisabled) {
+			return;
+		}
+
+		if (touchStartY) {
 			event.preventDefault();
 		}
 	}

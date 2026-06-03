@@ -3,12 +3,6 @@ import { initCrtInput } from './crt-input';
 import { initCrtTransitionController } from './crt-transition';
 import { initCrtViewer, type MovieVideo } from './crt-viewer';
 
-type DetailState = {
-	fromCrt?: boolean;
-	fromCrtHome?: boolean;
-	movieId?: number;
-};
-
 export function initCrtViewerPage() {
 	const root = document.querySelector<HTMLElement>('[data-crt-root]');
 	const canvas = root?.querySelector<HTMLCanvasElement>('[data-crt-canvas]');
@@ -52,10 +46,6 @@ export function initCrtViewerPage() {
 	let pendingDetailMovieId: number | null = null;
 	let detailFrameId = 0;
 
-	if (window.location.pathname === '/') {
-		window.history.replaceState({ fromCrtHome: true } satisfies DetailState, '', window.location.href);
-	}
-
 	function updateNav(activeIndex: number) {
 		navDots.forEach((dot, index) => {
 			const isActive = index === activeIndex;
@@ -74,7 +64,7 @@ export function initCrtViewerPage() {
 			const movieId = pendingDetailMovieId;
 			pendingDetailMovieId = null;
 			window.setTimeout(() => {
-				void enterDetail(movieId, { pushState: false });
+				void enterDetail(movieId);
 			}, 0);
 		}
 	}
@@ -92,7 +82,7 @@ export function initCrtViewerPage() {
 		return movies.findIndex((movie) => movie.id === movieId);
 	}
 
-	async function enterDetail(movieId: number, { pushState }: { pushState: boolean }) {
+	async function enterDetail(movieId: number) {
 		if (isDetailTransitioning || viewer.isBusy()) {
 			return;
 		}
@@ -128,9 +118,6 @@ export function initCrtViewerPage() {
 				return;
 			}
 
-			if (pushState) {
-				window.history.pushState({ fromCrt: true, movieId } satisfies DetailState, '', `/movies/${movieId}`);
-			}
 			detail.show(movieId);
 			isDetailTransitioning = false;
 		});
@@ -166,32 +153,15 @@ export function initCrtViewerPage() {
 			return;
 		}
 
-		void enterDetail(movie.id, { pushState: true });
+		void enterDetail(movie.id);
 	}
 
 	function handleDetailBackClick() {
-		const state = window.history.state as DetailState | null;
-		if (state?.fromCrt) {
-			window.history.back();
-			return;
-		}
-
-		void exitDetail();
-	}
-
-	function handlePopState(event: PopStateEvent) {
-		const state = event.state as DetailState | null;
-		if (state?.fromCrt && Number.isFinite(state.movieId)) {
-			void enterDetail(Number(state.movieId), { pushState: false });
-			return;
-		}
-
 		void exitDetail();
 	}
 
 	screen?.addEventListener('click', handleScreenClick);
 	detail.backButton?.addEventListener('click', handleDetailBackClick);
-	window.addEventListener('popstate', handlePopState);
 
 	viewer.play();
 
@@ -201,7 +171,6 @@ export function initCrtViewerPage() {
 		window.cancelAnimationFrame(detailFrameId);
 		screen?.removeEventListener('click', handleScreenClick);
 		detail.backButton?.removeEventListener('click', handleDetailBackClick);
-		window.removeEventListener('popstate', handlePopState);
 		transition.dispose();
 		input.dispose();
 		viewer.destroy();

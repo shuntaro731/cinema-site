@@ -46,7 +46,6 @@ type SwitchOptions = {
 };
 
 export type CrtViewerController = {
-	preload: () => void;
 	play: () => void;
 	pause: () => void;
 	setAutoAdvance: (autoAdvance: boolean) => void;
@@ -617,13 +616,6 @@ export function initCrtViewer({ canvas, movies = [], onChange, onProgress }: Crt
 	window.addEventListener('resize', resize);
 
 	return {
-		preload() {
-			if (isDestroyed) {
-				return;
-			}
-
-			void loadInitialVideo();
-		},
 		play() {
 			if (isDestroyed) {
 				return;
