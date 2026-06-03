@@ -113,6 +113,7 @@ export function initCrtViewerPage() {
 		isDetailTransitioning = true;
 		viewer.setAutoAdvance(false);
 		input.setDisabled(true);
+		detail.fadeOutHeader();
 		transition.saveCurrentStyles();
 		transition.fadeOverlays(transitionDuration);
 		transition.expandScreen(transitionDuration);

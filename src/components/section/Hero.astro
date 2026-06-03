@@ -14,38 +14,39 @@ const serializedMovies = JSON.stringify(
 	movies.map((movie) => ({
 		id: movie.id,
 		movieImage: movie.movieImage,
-		logo: movie.movieLogo,
 		sources: movie.teaserSources ?? [],
 		zoom: movie.teaserZoom,
 	})),
 );
 ---
 
-<section class="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-black px-6 py-10">
+<section class="relative flex h-screen flex-col overflow-hidden bg-black px-6 pb-10 pt-40">
 	<Header />
-	<div class="relative flex w-full max-w-[123vh] flex-col items-center">
-		<div
-			id="crt-screen-main"
-			class="relative aspect-[16/11] w-full cursor-pointer overflow-hidden rounded-[9%] bg-black shadow-[0_0_0_0.25rem_rgb(0_0_0),0_0_2.5rem_rgb(0_0_0/90%)] transition-[border-radius,box-shadow,transform] duration-500"
-			aria-label="ブラウン管ビュー"
-			data-crt-screen
-		>
+	<div class="flex min-h-0 flex-1 items-center justify-center">
+		<div class="relative flex w-full max-w-[123vh] -translate-y-8 flex-col items-center">
 			<div
-				class="crt-fallback-glow absolute inset-0 bg-cover bg-center opacity-70 transition duration-500"
-				style={initialMovieImage}
-				data-crt-fallback
-			></div>
-			<canvas
-				class="absolute inset-0 h-full w-full bg-transparent opacity-0 transition duration-500"
-				data-crt-canvas
-				data-movies={serializedMovies}
-			></canvas>
-			<div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_46%,rgb(0_0_0/30%)_100%)] transition-opacity duration-300" data-crt-overlay></div>
-			<div class="crt-screen-shade pointer-events-none absolute inset-0 transition-opacity duration-300" data-crt-overlay></div>
-			<div class="crt-scanlines pointer-events-none absolute inset-0 mix-blend-soft-light transition-opacity duration-300" data-crt-overlay></div>
+				id="crt-screen-main"
+				class="relative aspect-[16/11] w-full cursor-pointer overflow-hidden rounded-[9%] bg-black shadow-[0_0_0_0.25rem_rgb(0_0_0),0_0_2.5rem_rgb(0_0_0/90%)] transition-[border-radius,box-shadow,transform] duration-500"
+				aria-label="ブラウン管ビュー"
+				data-crt-screen
+			>
+				<div
+					class="crt-fallback-glow absolute inset-0 bg-cover bg-center opacity-70 transition duration-500"
+					style={initialMovieImage}
+					data-crt-fallback
+				></div>
+				<canvas
+					class="absolute inset-0 h-full w-full bg-transparent opacity-0 transition duration-500"
+					data-crt-canvas
+					data-movies={serializedMovies}
+				></canvas>
+				<div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_46%,rgb(0_0_0/30%)_100%)] transition-opacity duration-300" data-crt-overlay></div>
+				<div class="crt-screen-shade pointer-events-none absolute inset-0 transition-opacity duration-300" data-crt-overlay></div>
+				<div class="crt-scanlines pointer-events-none absolute inset-0 mix-blend-soft-light transition-opacity duration-300" data-crt-overlay></div>
+			</div>
+			<!-- 動画切り替えnav -->
+			<MovieNav movies={movies} />
 		</div>
-		<!-- 動画切り替えnav -->
-		<MovieNav movies={movies} />
 	</div>
 	<CrtDetailOverlay movies={movies} />
 </section>

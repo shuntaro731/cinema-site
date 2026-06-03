@@ -18,11 +18,44 @@ function setElementInert(element: HTMLElement, isInert: boolean) {
 }
 
 export function initCrtDetailController({ root, originalTitle }: CrtDetailControllerOptions) {
+	const header = root.querySelector<HTMLElement>('[data-crt-header]');
 	const detailRoot = root.querySelector<HTMLElement>('[data-crt-detail]');
 	const backButton = detailRoot?.querySelector<HTMLButtonElement>('[data-crt-detail-back]') ?? null;
 	const panels = Array.from(detailRoot?.querySelectorAll<HTMLElement>('[data-crt-detail-panel]') ?? []);
 	let isOpen = false;
 	let activeMovieId: number | null = null;
+
+	function setHeaderHidden(isHidden: boolean) {
+		if (!header) {
+			return;
+		}
+
+		header.classList.remove('crt-header-blur-fade-in', 'crt-header-blur-fade-out');
+		header.classList.toggle('hidden', isHidden);
+		setElementInert(header, isHidden);
+	}
+
+	function fadeOutHeader() {
+		if (!header) {
+			return;
+		}
+
+		header.classList.remove('hidden');
+		header.classList.remove('crt-header-blur-fade-in');
+		header.classList.add('crt-header-blur-fade-out');
+		setElementInert(header, true);
+	}
+
+	function fadeInHeader() {
+		if (!header) {
+			return;
+		}
+
+		header.classList.remove('hidden');
+		header.classList.remove('crt-header-blur-fade-out');
+		header.classList.add('crt-header-blur-fade-in');
+		setElementInert(header, false);
+	}
 
 	function getPanel(movieId: number) {
 		return panels.find((panel) => Number(panel.dataset.movieId) === movieId);
@@ -44,6 +77,7 @@ export function initCrtDetailController({ root, originalTitle }: CrtDetailContro
 		detailRoot.classList.remove('hidden');
 		detailRoot.setAttribute('aria-hidden', 'false');
 		setElementInert(detailRoot, false);
+		setHeaderHidden(true);
 		panels.forEach((panel) => {
 			const isActive = panel === activePanel;
 			panel.classList.toggle('hidden', !isActive);
@@ -67,6 +101,7 @@ export function initCrtDetailController({ root, originalTitle }: CrtDetailContro
 		detailRoot.classList.add('hidden');
 		detailRoot.setAttribute('aria-hidden', 'true');
 		setElementInert(detailRoot, true);
+		fadeInHeader();
 		panels.forEach((panel) => {
 			panel.classList.add('hidden');
 			panel.classList.remove('flex');
@@ -90,6 +125,7 @@ export function initCrtDetailController({ root, originalTitle }: CrtDetailContro
 		isOpen() {
 			return isOpen;
 		},
+		fadeOutHeader,
 		show,
 		hide,
 	};

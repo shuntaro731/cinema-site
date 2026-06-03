@@ -1,6 +1,5 @@
 // three.jsは理解していないので、ブラックボックス...
 import {
-	ClampToEdgeWrapping,
 	Color,
 	LinearFilter,
 	Mesh,
@@ -8,7 +7,6 @@ import {
 	Scene,
 	ShaderMaterial,
 	Texture,
-	TextureLoader,
 	Vector2,
 	VideoTexture,
 	WebGLRenderer,
@@ -21,18 +19,9 @@ type VideoSource = {
 	type?: string;
 };
 
-type MovieLogo = {
-	src: string;
-	center?: [number, number];
-	size?: [number, number];
-	rotation?: number;
-	opacity?: number;
-};
-
 export type MovieVideo = {
 	id: number;
 	movieImage?: string;
-	logo?: MovieLogo;
 	sources?: VideoSource[];
 	zoom?: number;
 };
@@ -47,11 +36,6 @@ export type CrtViewerOptions = {
 type VideoSlot = {
 	video: HTMLVideoElement;
 	texture: VideoTexture | null;
-	logoTexture: Texture | null;
-	logoCenter: Vector2;
-	logoSize: Vector2;
-	logoRotation: number;
-	logoOpacity: number;
 	aspect: number;
 	zoom: number;
 	ready: Promise<VideoSlot>;
@@ -81,7 +65,6 @@ export function initCrtViewer({ canvas, movies = [], onChange, onProgress }: Crt
 	const scene = new Scene();
 	const camera = new PerspectiveCamera(35, 16 / 11, 0.1, 100);
 	const emptyTexture = new Texture();
-	const textureLoader = new TextureLoader();
 	const renderer = new WebGLRenderer({
 		canvas,
 		alpha: true,
@@ -100,26 +83,14 @@ export function initCrtViewer({ canvas, movies = [], onChange, onProgress }: Crt
 		uniforms: {
 			uTexture: { value: emptyTexture },
 			uNextTexture: { value: emptyTexture },
-			uLogoTexture: { value: emptyTexture },
-			uNextLogoTexture: { value: emptyTexture },
 			uResolution: { value: new Vector2(1, 1) },
 			uTime: { value: 0 },
 			uHasTexture: { value: 0 },
 			uHasNextTexture: { value: 0 },
-			uHasLogoTexture: { value: 0 },
-			uHasNextLogoTexture: { value: 0 },
 			uMediaAspect: { value: 16 / 9 },
 			uNextMediaAspect: { value: 16 / 9 },
 			uTextureZoom: { value: 1 },
 			uNextTextureZoom: { value: 1 },
-			uLogoCenter: { value: new Vector2(0.25, 0.35) },
-			uNextLogoCenter: { value: new Vector2(0.25, 0.35) },
-			uLogoSize: { value: new Vector2(0.3, 0.24) },
-			uNextLogoSize: { value: new Vector2(0.3, 0.24) },
-			uLogoRotation: { value: 0 },
-			uNextLogoRotation: { value: 0 },
-			uLogoOpacity: { value: 0.9 },
-			uNextLogoOpacity: { value: 0.9 },
 			uTransitionProgress: { value: 0 },
 			uTransitionDirection: { value: 1 },
 			uFlattenProgress: { value: 0 },
@@ -154,47 +125,6 @@ export function initCrtViewer({ canvas, movies = [], onChange, onProgress }: Crt
 		return sources.find((source) => !source.type || targetVideo.canPlayType(source.type)) ?? sources[0];
 	}
 
-	function getLogoVector(value: [number, number] | undefined, fallback: [number, number]) {
-		return new Vector2(value?.[0] ?? fallback[0], value?.[1] ?? fallback[1]);
-	}
-
-	function loadLogoTexture(logo: MovieLogo | undefined) {
-		if (!logo?.src) {
-			return Promise.resolve(null);
-		}
-
-		return new Promise<Texture | null>((resolve) => {
-			textureLoader.load(
-				logo.src,
-				(texture) => {
-					texture.minFilter = LinearFilter;
-					texture.magFilter = LinearFilter;
-					texture.wrapS = ClampToEdgeWrapping;
-					texture.wrapT = ClampToEdgeWrapping;
-					resolve(texture);
-				},
-				undefined,
-				() => resolve(null),
-			);
-		});
-	}
-
-	function setLogoUniforms(slot: VideoSlot, target: 'current' | 'next') {
-		const textureKey = target === 'current' ? 'uLogoTexture' : 'uNextLogoTexture';
-		const hasTextureKey = target === 'current' ? 'uHasLogoTexture' : 'uHasNextLogoTexture';
-		const centerKey = target === 'current' ? 'uLogoCenter' : 'uNextLogoCenter';
-		const sizeKey = target === 'current' ? 'uLogoSize' : 'uNextLogoSize';
-		const rotationKey = target === 'current' ? 'uLogoRotation' : 'uNextLogoRotation';
-		const opacityKey = target === 'current' ? 'uLogoOpacity' : 'uNextLogoOpacity';
-
-		material.uniforms[textureKey].value = slot.logoTexture ?? emptyTexture;
-		material.uniforms[hasTextureKey].value = slot.logoTexture ? 1 : 0;
-		material.uniforms[centerKey].value.copy(slot.logoCenter);
-		material.uniforms[sizeKey].value.copy(slot.logoSize);
-		material.uniforms[rotationKey].value = slot.logoRotation;
-		material.uniforms[opacityKey].value = slot.logoOpacity;
-	}
-
 	function hideFallback() {
 		canvas.style.opacity = '1';
 		if (fallbackImage) {
@@ -205,8 +135,6 @@ export function initCrtViewer({ canvas, movies = [], onChange, onProgress }: Crt
 	function showFallback(revealImage = true) {
 		material.uniforms.uHasTexture.value = 0;
 		material.uniforms.uHasNextTexture.value = 0;
-		material.uniforms.uHasLogoTexture.value = 0;
-		material.uniforms.uHasNextLogoTexture.value = 0;
 		canvas.style.opacity = '0';
 		if (fallbackImage) {
 			fallbackImage.style.opacity = revealImage ? '0.6' : '0';
@@ -235,9 +163,7 @@ export function initCrtViewer({ canvas, movies = [], onChange, onProgress }: Crt
 		material.uniforms.uMediaAspect.value = slot.aspect;
 		material.uniforms.uTextureZoom.value = slot.zoom;
 		material.uniforms.uHasNextTexture.value = 0;
-		material.uniforms.uHasNextLogoTexture.value = 0;
 		material.uniforms.uTransitionProgress.value = 0;
-		setLogoUniforms(slot, 'current');
 		hideFallback();
 	}
 
@@ -282,16 +208,10 @@ export function initCrtViewer({ canvas, movies = [], onChange, onProgress }: Crt
 
 		const movie = movies[normalizedIndex];
 		const sources = movie?.sources ?? [];
-		const logo = movie?.logo;
 		const video = document.createElement('video');
 		const slot: VideoSlot = {
 			video,
 			texture: null,
-			logoTexture: null,
-			logoCenter: getLogoVector(logo?.center, [0.25, 0.35]),
-			logoSize: getLogoVector(logo?.size, [0.3, 0.24]),
-			logoRotation: logo?.rotation ?? 0,
-			logoOpacity: logo?.opacity ?? 0.9,
 			aspect: 16 / 9,
 			zoom: movie?.zoom ?? 1.02,
 			ready: Promise.resolve(null as unknown as VideoSlot),
@@ -304,7 +224,7 @@ export function initCrtViewer({ canvas, movies = [], onChange, onProgress }: Crt
 		video.crossOrigin = 'anonymous';
 		video.addEventListener('ended', () => handleVideoEnded(normalizedIndex));
 
-		const videoReady = new Promise<void>((resolve, reject) => {
+		slot.ready = new Promise<VideoSlot>((resolve, reject) => {
 			const source = getPlayableSource(video, sources);
 
 			if (!source?.src) {
@@ -322,20 +242,13 @@ export function initCrtViewer({ canvas, movies = [], onChange, onProgress }: Crt
 				slot.texture = new VideoTexture(video);
 				slot.texture.minFilter = LinearFilter;
 				slot.texture.magFilter = LinearFilter;
-				resolve();
+				resolve(slot);
 			}, { once: true });
 
 			video.addEventListener('error', () => reject(new Error('Video failed to load.')), { once: true });
 			video.src = source.src;
 			video.load();
 		});
-
-		slot.ready = Promise.all([
-			videoReady,
-			loadLogoTexture(logo).then((texture) => {
-				slot.logoTexture = texture;
-			}),
-		]).then(() => slot);
 
 		slots.set(normalizedIndex, slot);
 		return slot;
@@ -635,7 +548,6 @@ export function initCrtViewer({ canvas, movies = [], onChange, onProgress }: Crt
 		material.uniforms.uHasNextTexture.value = targetSlot.texture ? 1 : 0;
 		material.uniforms.uNextMediaAspect.value = targetSlot.aspect;
 		material.uniforms.uNextTextureZoom.value = targetSlot.zoom;
-		setLogoUniforms(targetSlot, 'next');
 		material.uniforms.uTransitionDirection.value = direction > 0 ? 1 : -1;
 		startTime = performance.now();
 		startRenderLoop();
@@ -769,7 +681,6 @@ export function initCrtViewer({ canvas, movies = [], onChange, onProgress }: Crt
 				slot.video.removeAttribute('src');
 				slot.video.load();
 				slot.texture?.dispose();
-				slot.logoTexture?.dispose();
 			});
 			emptyTexture.dispose();
 			geometry.dispose();

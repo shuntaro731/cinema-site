@@ -31,6 +31,44 @@
 		animation: crt-dot-noise 0.32s steps(2, end) infinite;
 	}
 
+	.crt-header-blur-fade-out {
+		animation: crt-header-blur-fade-out 0.36s ease forwards;
+	}
+
+	.crt-header-blur-fade-in {
+		animation: crt-header-blur-fade-in 0.36s ease forwards;
+	}
+
+}
+
+/* 詳細遷移時のヘッダー退場 */
+@keyframes crt-header-blur-fade-out {
+	0% {
+		filter: blur(0);
+		opacity: 1;
+		transform: translateY(0);
+	}
+
+	100% {
+		filter: blur(0.75rem);
+		opacity: 0;
+		transform: translateY(-0.75rem);
+	}
+}
+
+/* 詳細から戻る時のヘッダー復帰 */
+@keyframes crt-header-blur-fade-in {
+	0% {
+		filter: blur(0.75rem);
+		opacity: 0;
+		transform: translateY(-0.75rem);
+	}
+
+	100% {
+		filter: blur(0);
+		opacity: 1;
+		transform: translateY(0);
+	}
 }
 
 /* crtのノイズアニメーション */
