@@ -128,7 +128,7 @@ export function initCrtViewer({ canvas, movies = [], onChange, onProgress }: Crt
 			return;
 		}
 
-		const movieImage = movies[normalizeIndex(index)]?.movieImage;
+		const movieImage = movies[normalizeIndex(index)]?.fallbackImage;
 		if (movieImage) {
 			fallbackImage.style.backgroundImage = `url("${encodeURI(movieImage)}")`;
 		}

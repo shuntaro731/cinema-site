@@ -24,90 +24,40 @@ const { movies } = Astro.props;
 	>
 		<ArrowLeftIcon class="size-5" />
 	</button>
-	{movies.map((movie) => {
-		const detailRows = [
-			{ label: '制作国', value: movie.country },
-			{ label: '言語', value: movie.language },
-			{ label: '公開日', value: movie.releaseDate },
-			{ label: '監督', value: movie.director },
-		];
+	{movies.map((movie) => (
+		<article
+			class="hidden min-h-screen flex-col overflow-hidden"
+			aria-hidden="true"
+			data-crt-detail-panel
+			data-movie-id={String(movie.id)}
+			inert
+		>
+			<div class="mx-auto w-full max-w-6xl px-6 pt-16 pb-16">
+				<div class="space-y-14">
+					<section>
+						<p class="text-sm font-semibold tracking-[0.24em] text-white/70">IMDB {movie.imdbRating.toFixed(1)}</p>
+						<h1 class="mt-4 max-w-5xl text-4xl font-bold leading-tight text-white md:text-6xl">{movie.title}</h1>
+						<p class="mt-6 max-w-5xl text-base leading-7 text-white/80">{movie.description}</p>
+						<a
+							class="mt-8 inline-flex rounded bg-brand px-5 py-3 text-sm font-bold text-black transition hover:bg-[#f1d871]"
+							href={movie.officialUrl}
+							target="_blank"
+							rel="noreferrer"
+						>
+							公式サイトを見る
+						</a>
+					</section>
 
-		return (
-			<article
-				class="hidden min-h-screen flex-col overflow-hidden"
-				aria-hidden="true"
-				data-crt-detail-panel
-				data-movie-id={String(movie.id)}
-				inert
-			>
-				<div class="mx-auto w-full max-w-6xl px-6 pt-16 pb-16">
-					<div class="space-y-16">
-						<section class="grid gap-8 md:grid-cols-[18rem_1fr] md:items-end">
-							<img
-								class="w-full rounded bg-white/10 object-cover shadow-2xl"
-								src={movie.movieImage}
-								alt={`${movie.title}のポスター`}
-							/>
-							<div>
-								<div class="flex flex-wrap items-center gap-3 text-sm text-white/70">
-									<span>{movie.genre}</span>
-									<span>{movie.runtime}</span>
-									<span class="font-bold text-white">{movie.rating}</span>
-								</div>
-								<h1 class="mt-4 max-w-4xl text-4xl font-bold leading-tight text-white md:text-6xl">{movie.title}</h1>
-								<p class="mt-5 max-w-3xl text-base leading-7 text-white/80">{movie.description}</p>
-								<a
-									class="mt-8 inline-flex rounded bg-brand px-5 py-3 text-sm font-bold text-black transition hover:bg-[#f1d871]"
-									href={movie.officialUrl}
-									target="_blank"
-									rel="noreferrer"
-								>
-									公式サイトを見る
-								</a>
-							</div>
-						</section>
+					<ScheduleTable id={movie.id} schedule={movie.schedule} durationMinutes={movie.durationMinutes} />
 
-						<section class="grid gap-12 lg:grid-cols-[16rem_1fr]">
-							<aside class="space-y-8">
-								<div>
-									<h2 class="mb-4 text-sm font-bold uppercase tracking-[0.24em] text-white">上映形式</h2>
-									<div class="space-y-3">
-										{movie.screeningFormats.map((format, index) => (
-											<div class={`flex items-center justify-between rounded px-5 py-3 text-sm font-bold ${index % 2 === 0 ? 'bg-brand text-black' : 'bg-white/10 text-white/85'}`}>
-												<span>{format}</span>
-												{index % 2 === 0 && <span aria-hidden="true">✓</span>}
-											</div>
-										))}
-									</div>
-								</div>
-
-								<div>
-									<h2 class="mb-5 border-b border-white/15 pb-4 text-lg font-bold text-white">作品情報</h2>
-									<dl class="space-y-4">
-										{detailRows.map((row) => (
-											<div class="border-b border-white/10 pb-4">
-												<dt class="text-sm font-bold text-white/55">{row.label}</dt>
-												<dd class="mt-2 text-sm font-semibold text-white">{row.value}</dd>
-											</div>
-										))}
-									</dl>
-								</div>
-							</aside>
-
-							<div class="space-y-14">
-								<ScheduleTable id={movie.id} schedule={movie.schedule} runtime={movie.runtime} />
-
-								<section aria-label="あらすじ">
-									<h2 class="mb-5 border-b border-white/15 pb-4 text-lg font-bold text-white">あらすじ</h2>
-									<div class="space-y-6 text-base leading-8 text-white/80">
-										{movie.storyline.map((paragraph) => <p>{paragraph}</p>)}
-									</div>
-								</section>
-							</div>
-						</section>
-					</div>
+					<section aria-label="あらすじ">
+						<h2 class="mb-5 border-b border-white/15 pb-4 text-lg font-bold text-white">あらすじ</h2>
+						<div class="space-y-6 text-base leading-8 text-white/80">
+							{movie.storyline.map((paragraph) => <p>{paragraph}</p>)}
+						</div>
+					</section>
 				</div>
-			</article>
-		);
-	})}
+			</div>
+		</article>
+	))}
 </div>

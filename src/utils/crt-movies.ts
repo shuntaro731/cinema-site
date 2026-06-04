@@ -4,7 +4,7 @@ import type { MovieVideo } from '../types/video';
 export function toCrtMovies(movies: FeaturedMovie[]): MovieVideo[] {
 	return movies.map((movie) => ({
 		id: movie.id,
-		movieImage: movie.movieImage,
+		fallbackImage: movie.fallbackImage,
 		sources: movie.teaserSources ?? [],
 		zoom: movie.teaserZoom,
 	}));

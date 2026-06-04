@@ -5,14 +5,14 @@ import CalendarDaysIcon from './icons/CalendarDaysIcon.astro';
 type Props = {
 	id: number;
 	schedule: FeaturedMovie['schedule'];
-	runtime: FeaturedMovie['runtime'];
+	durationMinutes: FeaturedMovie['durationMinutes'];
 };
 
-const { id, schedule, runtime } = Astro.props;
+const { id, schedule, durationMinutes } = Astro.props;
 const timelineStartMinutes = 10 * 60;
 const timelineEndMinutes = 23 * 60;
 const minShowingGapMinutes = 180;
-const showingDurationMinutes = Number.parseInt(runtime, 10) || 60;
+const showingDurationMinutes = durationMinutes;
 
 const getShowingMinutes = (time: string) => {
 	const [hourText, minuteText] = time.split(':');

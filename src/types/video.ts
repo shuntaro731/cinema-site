@@ -5,7 +5,7 @@ export type VideoSource = {
 
 export type MovieVideo = {
 	id: number;
-	movieImage?: string;
+	fallbackImage?: string;
 	sources?: VideoSource[];
 	zoom?: number;
 };

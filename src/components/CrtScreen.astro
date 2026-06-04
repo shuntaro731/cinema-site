@@ -7,7 +7,7 @@ type Props = {
 };
 
 const { movies } = Astro.props;
-const initialMovieImage = movies[0]?.movieImage ? `background-image: url("${movies[0].movieImage}")` : undefined;
+const initialMovieImage = movies[0]?.fallbackImage ? `background-image: url("${movies[0].fallbackImage}")` : undefined;
 const serializedMovies = serializeCrtMovies(movies);
 ---
 
