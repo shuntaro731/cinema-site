@@ -16,6 +16,7 @@ const { movies } = Astro.props;
 	aria-hidden="true"
 	data-crt-detail
 >
+	<!-- 戻るボタン -->
 	<button
 		class="fixed left-10 top-12 z-70 inline-flex size-12 items-center justify-center rounded-full border border-white/20 bg-black/30 text-white backdrop-blur transition hover:bg-white/15"
 		type="button"
@@ -24,6 +25,7 @@ const { movies } = Astro.props;
 	>
 		<ArrowLeftIcon class="size-5" />
 	</button>
+	<!-- 各映画ごとの要素をpropsで渡す -->
 	{movies.map((movie) => (
 		<article
 			class="hidden min-h-screen flex-col overflow-hidden"
@@ -32,30 +34,17 @@ const { movies } = Astro.props;
 			data-movie-id={String(movie.id)}
 			inert
 		>
-			<div class="mx-auto w-full max-w-6xl px-6 pt-16 pb-16">
+			<div class="mx-auto w-full max-w-6xl px-6 pt-24 pb-24">
 				<div class="space-y-14">
-					<section>
-						<p class="text-sm font-semibold tracking-[0.24em] text-white/70">IMDB {movie.imdbRating.toFixed(1)}</p>
-						<h1 class="mt-4 max-w-5xl text-4xl font-bold leading-tight text-white md:text-6xl">{movie.title}</h1>
-						<p class="mt-6 max-w-5xl text-base leading-7 text-white/80">{movie.description}</p>
-						<a
-							class="mt-8 inline-flex rounded bg-brand px-5 py-3 text-sm font-bold text-black transition hover:bg-[#f1d871]"
-							href={movie.officialUrl}
-							target="_blank"
-							rel="noreferrer"
-						>
-							公式サイトを見る
-						</a>
-					</section>
-
-					<ScheduleTable id={movie.id} schedule={movie.schedule} durationMinutes={movie.durationMinutes} />
-
+					{/* あらすじ */}
 					<section aria-label="あらすじ">
 						<h2 class="mb-5 border-b border-white/15 pb-4 text-lg font-bold text-white">あらすじ</h2>
 						<div class="space-y-6 text-base leading-8 text-white/80">
 							{movie.storyline.map((paragraph) => <p>{paragraph}</p>)}
 						</div>
 					</section>
+					{/* 上映スケジュール */}
+					<ScheduleTable id={movie.id} schedule={movie.schedule} durationMinutes={movie.durationMinutes} />
 				</div>
 			</div>
 		</article>

@@ -27,7 +27,6 @@ export type FeaturedMovie = {
 	logoImage: string;
 	durationMinutes: number;
 	imdbRating: number;
-	officialUrl: string;
 	storyline: string[];
 	schedule: ScreeningSchedule[];
 	teaserSources?: VideoSource[];
@@ -42,11 +41,11 @@ export const featuredMovies: FeaturedMovie[] = [
 		description: 'ゲームの世界を飛び出した兄弟が、きらびやかな王国を舞台に冒険へ踏み出すファミリーアドベンチャー。',
 		durationMinutes: 93,
 		imdbRating: 7.0,
-		officialUrl: 'https://www.universalpictures.jp/micro/supermariobros',
 		storyline: [
 			'ニューヨークで配管工として働くマリオとルイージは、地下の不思議な土管を通って別々の世界へ迷い込む。マリオはピーチ姫と出会い、クッパにさらわれたルイージを救うため、キノコ王国を舞台に大きな冒険へ踏み出す。',
 			'ゲームでおなじみの世界観を鮮やかな映像で描き、家族で楽しめるテンポのよいアクションとコミカルなキャラクターが魅力の作品です。',
 		],
+		// 上映スケジュール
 		schedule: [
 			{ day: '月', date: '17', month: '6月', showings: [{ format: '2D', time: '11:30' }, { format: '3D', time: '13:00' }, { format: '2D', time: '17:00' }, { format: 'IMAX 3D', time: '19:45' }, { format: 'IMAX', time: '21:45' }] },
 			{ day: '火', date: '18', month: '6月', showings: [{ format: '2D', time: '10:30' }, { format: '3D', time: '13:10' }, { format: 'IMAX', time: '16:20' }, { format: '2D', time: '19:00' }, { format: 'IMAX 3D', time: '22:10' }] },
@@ -69,7 +68,6 @@ export const featuredMovies: FeaturedMovie[] = [
 		description: '銀河の辺境を旅する賞金稼ぎと小さな相棒の行く先を描く、重厚なスペースアクション。',
 		durationMinutes: 120,
 		imdbRating: 8.6,
-		officialUrl: 'https://www.starwars.com/',
 		storyline: [
 			'帝国崩壊後の混乱が続く銀河の辺境で、孤高の賞金稼ぎマンダロリアンは、任務の途中で小さな子どもと出会う。その出会いは、彼の生き方と銀河の勢力図を大きく変えていく。',
 			'西部劇のような緊張感とスターウォーズらしい壮大な世界観が重なり、静かなドラマと迫力あるアクションを同時に楽しめる作品です。',
@@ -95,7 +93,6 @@ export const featuredMovies: FeaturedMovie[] = [
 		description: '一流ファッション誌の編集部で働き始めた若きアシスタントが、自分らしいキャリアを見つめ直すドラマ。',
 		durationMinutes: 106,
 		imdbRating: 7.1,
-		officialUrl: 'https://www.20thcenturystudios.com/',
 		storyline: [
 			'華やかなファッション業界でキャリアを積んだアンディは、新しい時代のメディアと自分の働き方に向き合うことになる。かつての上司ミランダとの再会は、彼女にもう一度大きな選択を迫る。',
 			'仕事への憧れ、責任、そして自分らしさのバランスを描く、都会的でテンポのよいヒューマンドラマです。',
