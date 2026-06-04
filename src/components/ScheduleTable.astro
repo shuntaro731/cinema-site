@@ -118,13 +118,12 @@ const getShowingRows = (showings: FeaturedMovie['schedule'][number]['showings'])
 									<td class="relative px-16 align-middle">
 										{row.map((showing) => (
 											<button
-												class="absolute top-1/2 inline-flex min-w-44 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center whitespace-nowrap rounded bg-white px-5 py-3 text-black shadow shadow-white/20 transition hover:bg-white/90"
+												class="absolute top-1/2 inline-flex min-w-44 -translate-x-1/2 -translate-y-1/2 items-center justify-center whitespace-nowrap rounded bg-white px-5 py-4 text-black shadow shadow-white/20 transition hover:bg-white/90"
 												style={`left: ${getShowingLeft(showing.time)}`}
 												type="button"
 												aria-label={`${showing.format} ${formatShowingRange(showing.time)}を選択`}
 											>
-												<span class="text-[0.625rem] font-semibold tracking-[0.24em] text-black/55">{showing.format}</span>
-												<span class="mt-1 text-sm font-semibold">{formatShowingRange(showing.time)}</span>
+												<span class="text-sm font-semibold">{formatShowingRange(showing.time)}</span>
 											</button>
 										))}
 									</td>
