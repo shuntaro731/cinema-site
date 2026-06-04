@@ -8,13 +8,13 @@ type Props = {
 const { movies } = Astro.props;
 ---
 
-<nav class="absolute bottom-10 left-1/2 z-30 flex w-fit -translate-x-1/2 items-center justify-center gap-2.5" aria-label="動画ナビゲーション">
+<nav class="absolute bottom-10 left-1/2 z-30 flex -translate-x-1/2 gap-2.5" aria-label="動画ナビゲーション">
 	{
 		movies.map((_, index) => (
 			<button
 				type="button"
-				class="relative h-1.5 w-12 shrink-0 overflow-hidden rounded-full bg-white/15 transition-all duration-200 hover:bg-white/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-white data-[active=true]:bg-white/25"
-				aria-label={`Movie ${index + 1} に切り替え`}
+				class="relative h-1.5 w-12 shrink-0 overflow-hidden rounded-full bg-white/15 transition-colors duration-200 hover:bg-white/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-white data-[active=true]:bg-white/25"
+				aria-label={`${index + 1}番目の映画に切り替え`}
 				aria-current={index === 0 ? 'true' : 'false'}
 				data-crt-nav-dot
 				data-index={index}

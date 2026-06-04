@@ -18,7 +18,7 @@ const { movies } = Astro.props;
 >
 	<!-- 戻るボタン -->
 	<button
-		class="fixed left-10 top-12 z-70 inline-flex size-12 items-center justify-center rounded-full border border-white/20 bg-black/30 text-white backdrop-blur transition hover:bg-white/15"
+		class="fixed left-10 top-12 z-70 inline-flex size-12 items-center justify-center rounded-full border border-white/20 bg-black/30 backdrop-blur transition hover:bg-white/15"
 		type="button"
 		aria-label="戻る"
 		data-crt-detail-back
@@ -34,11 +34,11 @@ const { movies } = Astro.props;
 			data-movie-id={String(movie.id)}
 			inert
 		>
-			<div class="mx-auto w-full max-w-6xl px-6 pt-24 pb-24">
+			<div class="mx-auto max-w-6xl px-6 pt-24 pb-24">
 				<div class="space-y-24">
 					{/* あらすじ */}
 					<section aria-label="あらすじ">
-						<h2 class="mb-5 border-b border-white/15 pb-4 text-lg font-bold text-white">あらすじ</h2>
+						<h2 class="mb-5 border-b border-white/15 pb-4 text-lg font-bold">あらすじ</h2>
 						<div class="space-y-6 text-base leading-8 text-white/80">
 							{movie.storyline.map((paragraph) => <p>{paragraph}</p>)}
 						</div>

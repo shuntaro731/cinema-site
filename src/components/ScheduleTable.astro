@@ -65,19 +65,19 @@ const getShowingRows = (showings: FeaturedMovie['schedule'][number]['showings'])
 
 <section aria-labelledby={`schedule-heading-${id}`} data-schedule-root>
 	<div class="mb-10 flex items-center gap-3 text-white">
-		<CalendarDaysIcon class="size-6 text-white rotate-355" />
+		<CalendarDaysIcon class="size-6 rotate-355" />
 		<h2 id={`schedule-heading-${id}`} class="text-lg font-semibold tracking-wide">上映スケジュール</h2>
 	</div>
 
 	<div class="overflow-x-auto">
-		<table class="min-w-full table-fixed border-collapse text-center">
+		<table class="min-w-full table-fixed text-center">
 			<caption class="sr-only">予約日を選択</caption>
 			<tbody>
 				<tr>
 					{schedule.map((day, index) => (
 						<td class="px-4 align-bottom border-b-2 border-white/75 data-[selected=true]:border-transparent" data-selected={index === 0 ? 'true' : 'false'} data-schedule-date-cell>
 							<button
-								class="group relative w-full pt-7 pb-5 text-white transition hover:text-white/85"
+								class="group relative w-full pt-7 pb-5 text-white transition"
 								type="button"
 								aria-pressed={index === 0 ? 'true' : 'false'}
 								data-selected={index === 0 ? 'true' : 'false'}
@@ -87,11 +87,11 @@ const getShowingRows = (showings: FeaturedMovie['schedule'][number]['showings'])
 								{/* 選択時dot */}
 								<span class="absolute top-0 left-1/2 hidden size-2 -translate-x-1/2 rounded-full bg-brand group-data-[selected=true]:block"></span>
 								{/* 曜日 */}
-								<span class="block text-base font-medium text-white group-data-[selected=true]:font-bold" data-schedule-day-label>{day.day}曜日</span>
+								<span class="block text-base font-medium group-data-[selected=true]:font-bold" data-schedule-day-label>{day.day}曜日</span>
 								{/* 日 */}
-								<span class="block text-5xl font-semibold leading-none tracking-tight text-white" data-schedule-date-label>{day.date}</span>
+								<span class="block text-5xl font-semibold leading-none tracking-tight" data-schedule-date-label>{day.date}</span>
 								{/* 月 */}
-								<span class="mt-2 block text-xs font-normal text-white/55 group-data-[selected=true]:font-semibold" data-schedule-month-label>{day.month}</span>
+								<span class="mt-2 block text-xs text-white/55 group-data-[selected=true]:font-semibold" data-schedule-month-label>{day.month}</span>
 							</button>
 						</td>
 					))}
@@ -103,12 +103,12 @@ const getShowingRows = (showings: FeaturedMovie['schedule'][number]['showings'])
 	<div class="mt-7">
 		{schedule.map((day, index) => (
 			<div
-				class={index === 0 ? 'block' : 'hidden'}
+				class={index === 0 ? undefined : 'hidden'}
 				data-schedule-showings
 				data-schedule-day-index={String(index)}
 			>
 				<div class="overflow-x-auto">
-					<table class="min-w-full table-fixed border-collapse text-sm">
+					<table class="min-w-full table-fixed text-sm">
 						<caption class="sr-only">
 							{day.month}{day.date}日（{day.day}）の予約可能時間
 						</caption>
@@ -123,7 +123,7 @@ const getShowingRows = (showings: FeaturedMovie['schedule'][number]['showings'])
 												type="button"
 												aria-label={`${showing.format} ${formatShowingRange(showing.time)}を選択`}
 											>
-												<span class="text-sm font-semibold">{formatShowingRange(showing.time)}</span>
+												<span class="font-semibold">{formatShowingRange(showing.time)}</span>
 											</button>
 										))}
 									</td>
@@ -163,7 +163,6 @@ const getShowingRows = (showings: FeaturedMovie['schedule'][number]['showings'])
 					const isSelected = table.getAttribute('data-schedule-day-index') === selectedIndex;
 
 					table.classList.toggle('hidden', !isSelected);
-					table.classList.toggle('block', isSelected);
 				});
 			});
 		});

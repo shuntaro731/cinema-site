@@ -14,17 +14,17 @@ const serializedMovies = serializeCrtMovies(movies);
 
 <div
 	id="crt-screen-main"
-	class="relative aspect-[16/11] w-full cursor-pointer overflow-hidden rounded-[9%] bg-black shadow-[0_0_0_0.25rem_rgb(0_0_0),0_0_2.5rem_rgb(0_0_0/90%)] transition-[border-radius,box-shadow,transform] duration-500"
+	class="relative aspect-16/11 w-full cursor-pointer overflow-hidden rounded-[9%] bg-black shadow-[0_0_0_0.25rem_rgb(0_0_0),0_0_2.5rem_rgb(0_0_0/90%)] transition-[border-radius,box-shadow,transform] duration-500"
 	aria-label="ブラウン管ビュー"
 	data-crt-screen
 >
 	<div
-		class="crt-fallback-glow absolute inset-0 bg-cover bg-center opacity-70 transition duration-500"
+		class="crt-fallback-glow absolute inset-0 bg-cover bg-center opacity-70 transition-opacity duration-500"
 		style={initialMovieImage}
 		data-crt-fallback
 	></div>
 	<canvas
-		class="absolute inset-0 h-full w-full bg-transparent opacity-0 transition duration-500"
+		class="absolute inset-0 h-full w-full opacity-0 transition-opacity duration-500"
 		data-crt-canvas
 		data-movies={serializedMovies}
 	></canvas>
@@ -32,7 +32,7 @@ const serializedMovies = serializeCrtMovies(movies);
 	<div class="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden" data-crt-detail-logo-layer>
 		{movies.map((movie) => (
 			<img
-				class="absolute w-full max-w-3xs rotate-[-7deg] opacity-0 transition duration-500"
+				class="absolute w-full max-w-3xs rotate-[-7deg] opacity-0 transition-opacity duration-500"
 				src={movie.logoImage}
 				alt=""
 				aria-hidden="true"
