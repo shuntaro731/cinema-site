@@ -22,10 +22,20 @@ function setElementInert(element: HTMLElement, isInert: boolean) {
 export function initCrtDetailController({ root, originalTitle }: CrtDetailControllerOptions) {
 	const header = root.querySelector<HTMLElement>(SELECTORS.crtHeader);
 	const detailRoot = root.querySelector<HTMLElement>(SELECTORS.crtDetail);
+	const detailLogos = Array.from(root.querySelectorAll<HTMLElement>(SELECTORS.crtDetailLogo));
 	const backButton = detailRoot?.querySelector<HTMLButtonElement>(SELECTORS.crtDetailBack) ?? null;
 	const panels = Array.from(detailRoot?.querySelectorAll<HTMLElement>(SELECTORS.crtDetailPanel) ?? []);
 	let isOpen = false;
 	let activeMovieId: number | null = null;
+
+	function setActiveLogo(movieId: number | null) {
+		detailLogos.forEach((logo) => {
+			const isActive = movieId !== null && Number(logo.dataset.movieId) === movieId;
+
+			logo.classList.toggle('opacity-70', isActive);
+			logo.classList.toggle('opacity-0', !isActive);
+		});
+	}
 
 	function setHeaderHidden(isHidden: boolean) {
 		if (!header) {
@@ -89,6 +99,7 @@ export function initCrtDetailController({ root, originalTitle }: CrtDetailContro
 			panel.setAttribute('aria-hidden', isActive ? 'false' : 'true');
 			setElementInert(panel, !isActive);
 		});
+		setActiveLogo(movieId);
 		document.title = `${getTitle(movieId)} | TOHO CINEMA`;
 		activeMovieId = movieId;
 		isOpen = true;
@@ -114,6 +125,7 @@ export function initCrtDetailController({ root, originalTitle }: CrtDetailContro
 			panel.setAttribute('aria-hidden', 'true');
 			setElementInert(panel, true);
 		});
+		setActiveLogo(null);
 		document.title = originalTitle;
 		activeMovieId = null;
 		isOpen = false;

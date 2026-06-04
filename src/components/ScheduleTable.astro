@@ -1,36 +1,18 @@
 ---
 import type { FeaturedMovie } from '../data/movies';
+import CalendarDaysIcon from './icons/CalendarDaysIcon.astro';
 
 type Props = {
 	id: number;
 	schedule: FeaturedMovie['schedule'];
+	runtime: FeaturedMovie['runtime'];
 };
 
-const { id, schedule } = Astro.props;
-
-const dayLabels = ['日曜日', '月曜日', '火曜日', '水曜日', '木曜日', '金曜日', '土曜日'];
-const monthLabels = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
-const scheduleDates = Array.from({ length: 7 }, (_, index) => {
-	const date = new Date();
-	date.setDate(date.getDate() + index);
-
-	return {
-		day: dayLabels[date.getDay()],
-		date: String(date.getDate()),
-		month: monthLabels[date.getMonth()],
-	};
-});
+const { id, schedule, runtime } = Astro.props;
 const timelineStartMinutes = 10 * 60;
 const timelineEndMinutes = 23 * 60;
 const minShowingGapMinutes = 180;
-
-const formatShowingTime = (time: string) => {
-	const [hourText, minute] = time.split(':');
-	const hour = Number(hourText);
-	const period = hour >= 12 ? '午後' : '午前';
-
-	return `${period}${hour}:${minute}`;
-};
+const showingDurationMinutes = Number.parseInt(runtime, 10) || 60;
 
 const getShowingMinutes = (time: string) => {
 	const [hourText, minuteText] = time.split(':');
@@ -44,6 +26,15 @@ const getShowingLeft = (time: string) => {
 	const safeProgress = Math.min(Math.max(progress, 0), 1);
 
 	return `${8 + safeProgress * 84}%`;
+};
+
+const formatShowingRange = (time: string) => {
+	const startMinutes = getShowingMinutes(time);
+	const endMinutes = startMinutes + showingDurationMinutes;
+	const endHour = Math.floor(endMinutes / 60);
+	const endMinute = endMinutes % 60;
+
+	return `${time}〜${String(endHour).padStart(2, '0')}:${String(endMinute).padStart(2, '0')}`;
 };
 
 const getShowingRows = (showings: FeaturedMovie['schedule'][number]['showings']) => {
@@ -73,27 +64,34 @@ const getShowingRows = (showings: FeaturedMovie['schedule'][number]['showings'])
 ---
 
 <section aria-labelledby={`schedule-heading-${id}`} data-schedule-root>
-	<h2 id={`schedule-heading-${id}`} class="sr-only">上映スケジュール</h2>
+	<div class="mb-10 flex items-center gap-3 text-white">
+		<CalendarDaysIcon class="size-6 text-white rotate-355" />
+		<h2 id={`schedule-heading-${id}`} class="text-lg font-semibold tracking-wide">上映スケジュール</h2>
+	</div>
 
 	<div class="overflow-x-auto">
 		<table class="min-w-full table-fixed border-collapse text-center">
 			<caption class="sr-only">予約日を選択</caption>
 			<tbody>
-				<tr class="border-b-2 border-white/75">
+				<tr>
 					{schedule.map((day, index) => (
-						<td class="px-4 align-bottom">
+						<td class="px-4 align-bottom border-b-2 border-white/75 data-[selected=true]:border-transparent" data-selected={index === 0 ? 'true' : 'false'} data-schedule-date-cell>
 							<button
-								class="group relative w-full pt-8 pb-5 text-white transition hover:text-white/85"
+								class="group relative w-full pt-7 pb-5 text-white transition hover:text-white/85"
 								type="button"
 								aria-pressed={index === 0 ? 'true' : 'false'}
 								data-selected={index === 0 ? 'true' : 'false'}
 								data-schedule-date
 								data-schedule-day-index={String(index)}
 							>
+								{/* 選択時dot */}
 								<span class="absolute top-0 left-1/2 hidden size-2 -translate-x-1/2 rounded-full bg-brand group-data-[selected=true]:block"></span>
-								<span class="block text-lg font-bold text-white" data-schedule-day-label>{scheduleDates[index]?.day}</span>
-								<span class="block text-6xl font-bold leading-none tracking-tight text-white" data-schedule-date-label>{scheduleDates[index]?.date}</span>
-								<span class="mt-2 block text-sm font-bold text-white/55" data-schedule-month-label>{scheduleDates[index]?.month}</span>
+								{/* 曜日 */}
+								<span class="block text-base font-medium text-white group-data-[selected=true]:font-bold" data-schedule-day-label>{day.day}曜日</span>
+								{/* 日 */}
+								<span class="block text-5xl font-semibold leading-none tracking-tight text-white" data-schedule-date-label>{day.date}</span>
+								{/* 月 */}
+								<span class="mt-2 block text-xs font-normal text-white/55 group-data-[selected=true]:font-semibold" data-schedule-month-label>{day.month}</span>
 							</button>
 						</td>
 					))}
@@ -102,7 +100,7 @@ const getShowingRows = (showings: FeaturedMovie['schedule'][number]['showings'])
 		</table>
 	</div>
 
-	<div class="mt-24">
+	<div class="mt-7">
 		{schedule.map((day, index) => (
 			<div
 				class={index === 0 ? 'block' : 'hidden'}
@@ -116,16 +114,17 @@ const getShowingRows = (showings: FeaturedMovie['schedule'][number]['showings'])
 						</caption>
 						<tbody>
 							{getShowingRows(day.showings).map((row) => (
-								<tr class="h-24 border-b border-white/20">
+								<tr class="h-20 border-b border-white/20">
 									<td class="relative px-16 align-middle">
 										{row.map((showing) => (
 											<button
-												class="absolute top-1/2 inline-flex min-w-32 -translate-x-1/2 -translate-y-1/2 justify-center whitespace-nowrap rounded bg-white px-6 py-3 text-sm font-bold text-black shadow shadow-white/20 transition hover:bg-white/90"
+												class="absolute top-1/2 inline-flex min-w-44 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center whitespace-nowrap rounded bg-white px-5 py-3 text-black shadow shadow-white/20 transition hover:bg-white/90"
 												style={`left: ${getShowingLeft(showing.time)}`}
 												type="button"
-												aria-label={`${showing.format} ${formatShowingTime(showing.time)}を選択`}
+												aria-label={`${showing.format} ${formatShowingRange(showing.time)}を選択`}
 											>
-												{formatShowingTime(showing.time)}
+												<span class="text-[0.625rem] font-semibold tracking-[0.24em] text-black/55">{showing.format}</span>
+												<span class="mt-1 text-sm font-semibold">{formatShowingRange(showing.time)}</span>
 											</button>
 										))}
 									</td>
@@ -140,22 +139,13 @@ const getShowingRows = (showings: FeaturedMovie['schedule'][number]['showings'])
 </section>
 
 <script>
-	const dayLabels = ['日曜日', '月曜日', '火曜日', '水曜日', '木曜日', '金曜日', '土曜日'];
-	const monthLabels = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
 	const scheduleRoots = document.querySelectorAll('[data-schedule-root]');
 
 	scheduleRoots.forEach((root) => {
 		const dateButtons = root.querySelectorAll('[data-schedule-date]');
+		const dateCells = root.querySelectorAll('[data-schedule-date-cell]');
 		const showingTables = root.querySelectorAll('[data-schedule-showings]');
-
-		dateButtons.forEach((button, index) => {
-			const date = new Date();
-			date.setDate(date.getDate() + index);
-
-			button.querySelector('[data-schedule-day-label]')!.textContent = dayLabels[date.getDay()];
-			button.querySelector('[data-schedule-date-label]')!.textContent = String(date.getDate());
-			button.querySelector('[data-schedule-month-label]')!.textContent = monthLabels[date.getMonth()];
-
+		dateButtons.forEach((button) => {
 			button.addEventListener('click', () => {
 				const selectedIndex = button.getAttribute('data-schedule-day-index');
 
@@ -164,6 +154,10 @@ const getShowingRows = (showings: FeaturedMovie['schedule'][number]['showings'])
 
 					dateButton.setAttribute('data-selected', String(isSelected));
 					dateButton.setAttribute('aria-pressed', String(isSelected));
+				});
+
+				dateCells.forEach((dateCell, cellIndex) => {
+					dateCell.setAttribute('data-selected', String(String(cellIndex) === selectedIndex));
 				});
 
 				showingTables.forEach((table) => {
